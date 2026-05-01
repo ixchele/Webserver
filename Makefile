@@ -1,4 +1,4 @@
-NAME = btc
+NAME = webserv
 
 SRCS = main.cpp server/server.cpp
 
