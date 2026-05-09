@@ -11,6 +11,9 @@ using std::vector;
 //
 //
 
+#define BACKLOG 5
+#define MAX_CLIENTS 1024
+
 #define M_GET 1
 #define M_POST 2
 #define M_DELETE 4
@@ -20,12 +23,14 @@ typedef char methods_t;
 class Server
 {
   public:
+		Server();
     int get_sockFd();
     void creat_socket();
     void bind_address();
     void start_listening();
     void accept_client();
     void run();
+		~Server();
 
   private:
     struct Location
@@ -43,4 +48,6 @@ class Server
     string m_serverName;
     int m_uploadLimit;
     vector <Location> m_locations;
+		int m_clientsList[MAX_CLIENTS];
+		int m_numberOfClients;
 };

@@ -21,8 +21,10 @@ void Server::bind_address()
 
 void Server::start_listening()
 {
+	listen(this->m_sockFd, BACKLOG);
 }
 
 void Server::accept_client()
 {
+	int cfd = accept(this->m_sockFd, NULL, NULL);
 }
