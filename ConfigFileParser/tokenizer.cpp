@@ -1,49 +1,54 @@
-#include <cstddef>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
+#include <ConfigFile.hpp>
 
-class	ConfigFile {
-	private:
-		std::string	_confContent;
+using std::cout;
+using std::endl;
 
-	public:
-		ConfigFile(const std::string &confPath);
-
-		struct ConfigException : public std::runtime_error {
-			ConfigException(const std::string &error);
-		};
-};
-
-ConfigFile::ConfigFile(const std::string &confPath) {
-	std::ifstream	ifs(confPath.c_str());	
-	if (!ifs.is_open())
-		throw ConfigException("[x] Error : could not open config file \'" + confPath + "'" + ".");
-	
-	ifs >> this->_confContent;
+std::ostream& operator<<(std::ostream& os, const Token& t) {
+    os << "Token[" << t.line << ":" << t.column << "] -> \"" << t.content << "\"" << endl;
+    return os;
 }
 
-std::string	AereContent(const std::string	&content, const std::string &tokens) {
-	std::string	spaced;
+std::vector<Token>	tokenizer(const std::string &confContent) {
+	std::string			delim("{};");
+	std::vector<Token>	tokenList;
+	std::string			word;
 
-	for (std::size_t i = 0; i < content.size(); ++i) {
-		if (tokens.find(content[i]) != std::string::npos)
-			spaced += " " + std::string(&content[i]) + " ";
-		else
-			spaced += content[i];
+	int startCol = 1;
+	int line = 1;
+	int col = 1;
+
+	cout << confContent << endl;
+	for (std::size_t i = 0; i < confContent.size(); ++i) {
+		char	c = confContent[i];
+
+		if (c == '\n') {
+			if (!word.empty()) 
+				tokenList.push_back(Token(word, line, startCol));
+			word.clear();
+			line++;
+			col = 1;
+			continue;
+		}
+
+		if (delim.find(c) != std::string::npos) {
+			if (!word.empty())
+				tokenList.push_back(Token(word, line, startCol));
+
+			tokenList.push_back(Token(std::string(1, c), line, col));
+			word.clear();
+		}
+		else if (std::isspace(c)) {
+			if (!word.empty())
+				tokenList.push_back(Token(word, line, startCol));
+			word.clear();
+		}
+		else {
+			if (word.empty())
+				startCol = col;
+			word += c;
+		}
+		col++;
 	}
-
-	return spaced;
-}
-
-std::vector<std::string>	toknizer(const std::string &content) {
-	std::stringstream	ss(AereContent(content, "{};"));
-	std::string			token;
-	std::vector<std::string>	tokenList;
-
-	while (ss >> token)
-		tokenList.push_back(token);
 
 	return tokenList;
 }
