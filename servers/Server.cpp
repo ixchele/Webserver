@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 
 Server::Server()
-	: m_sockFd(-1)
+	: m_sockFd(-1), m_numberOfClients(0)
 {
 }
 
@@ -29,6 +29,10 @@ void Server::start_listening() {
 void Server::accept_client() {
     int cfd = accept(this->m_sockFd, NULL, NULL);
 	this->m_clientsList[this->m_numberOfClients++] = cfd;
+}
+
+void Server::response() {
+    
 }
 
 int Server::get_sockFd() {

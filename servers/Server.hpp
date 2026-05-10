@@ -33,6 +33,7 @@ class Server
     void bind_address();
     void start_listening();
     void accept_client();
+    void response();
     void run();
 		//~Server();
 
@@ -46,11 +47,11 @@ class Server
     };
 
     int m_sockFd;
-    short m_port;  // NOTE : same as listen
-    int m_address; // NOTE : same as host
+    // short m_port;  // NOTE : same as listen
+    // int m_address; // NOTE : same as host
 		sockaddr_in m_sockaddr;
     string m_serverName;
-    int m_uploadLimit;
+    // int m_uploadLimit;
     vector <Location> m_locations;
 		int m_clientsList[MAX_CLIENTS];
 		int m_numberOfClients;

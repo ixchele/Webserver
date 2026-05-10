@@ -9,7 +9,7 @@ class WebServer
 {
 public:
 	void run();
-
+	void response_loop();
 private:
 	vector <Server> m_servers;
 };
