@@ -1,8 +1,8 @@
 NAME = webserv
 
-SRCS = main.cpp servers/WebServer.cpp
+SRCS = main.cpp servers/WebServer.cpp servers/Server.cpp
 
-HDRS = servers/WebServer.hpp
+HDRS = servers/WebServer.hpp servers/Server.hpp
 
 OBJS = $(SRCS:.cpp=.o)
 

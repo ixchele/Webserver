@@ -24,13 +24,17 @@ class Server
 {
   public:
 		Server();
+
     int get_sockFd();
+    
+    void set_sockaddr(sockaddr_in &sockaddr);
+
     void creat_socket();
     void bind_address();
     void start_listening();
     void accept_client();
     void run();
-		~Server();
+		//~Server();
 
   private:
     struct Location
@@ -44,7 +48,7 @@ class Server
     int m_sockFd;
     short m_port;  // NOTE : same as listen
     int m_address; // NOTE : same as host
-		struct sockaddr_in m_sockaddr;
+		sockaddr_in m_sockaddr;
     string m_serverName;
     int m_uploadLimit;
     vector <Location> m_locations;
