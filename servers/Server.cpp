@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
 
 Server::Server()
 	: m_sockFd(-1), m_numberOfClients(0)
@@ -32,7 +33,11 @@ void Server::accept_client() {
 }
 
 void Server::response() {
-    
+    write(this->m_clientsList[this->m_numberOfClients - 1], "Accepted\n", 9);
+}
+
+void Server::close_connection() {
+    close(this->m_clientsList[this->m_numberOfClients - 1]);
 }
 
 int Server::get_sockFd() {

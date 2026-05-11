@@ -34,6 +34,7 @@ class Server
     void start_listening();
     void accept_client();
     void response();
+    void close_connection();
     void run();
 		//~Server();
 

@@ -15,6 +15,8 @@ int main()
     server.set_sockaddr(sockaddr);
     server.run();
     server.accept_client();
+    server.response();
+    server.close_connection();
     std::cout << "webserv!" << std::endl;
     return 0;
 }
