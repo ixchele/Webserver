@@ -18,7 +18,6 @@ enum	TokenType {
 
 struct Token {
     std::string		content;
-    TokenType		type;
     int				line;
 	int				column;
 

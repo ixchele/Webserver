@@ -1,6 +1,6 @@
 <config>            ::= { <server_block> }
 
-(* --- PRINCIPAL BLOCKS --- *)
+(* --- BLOCS PRINCIPAUX --- *)
 <server_block>      ::= "server" "{" { <server_content> } "}"
 
 <location_block>    ::= "location" <path> "{" { <location_content> } "}"
@@ -10,21 +10,21 @@
 
 <location_content>  ::= <location_only_dir> | <common_directives>
 
-(* ---  COMMUNE DIRECTIVES --- *)
-<common_directives> ::= <root_dir>
-                      | <index_dir>
-                      | <autoindex_dir>
+(* --- DIRECTIVES COMMUNES (Héritables) --- *)
+<common_directives> ::= <root_dir> 
+                      | <index_dir> 
+                      | <autoindex_dir> 
                       | <client_body_dir>
                       | <cgi_extension_dir>
                       | <cgi_path_dir>
 
-(* --- EXCLUSIV --- *)
+(* --- EXCLUSIVITÉS --- *)
 <server_only_dir>   ::= <listen_dir> | <host_dir> | <name_dir> | <error_page_dir>
 
 <location_only_dir> ::= <methods_dir> | <return_dir> | <upload_dir>
 
-(* --- DIRECTIVES --- *)
-<listen_dir>        ::= "listen" <port_number>  { <port_number> }  ";"
+(* --- DÉTAILS DES DIRECTIVES --- *)
+<listen_dir>        ::= "listen" <port_number> ";"
 <host_dir>          ::= "host" <ip_address> ";"
 <name_dir>          ::= "server_name" <string> { <string> } ";"
 <error_page_dir>    ::= "error_page" <int> { <int> } <string> ";"
