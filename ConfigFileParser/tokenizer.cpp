@@ -8,9 +8,9 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
     return os;
 }
 
-std::vector<Token>	tokenizer(const std::string &confContent) {
+std::deque<Token>	tokenizer(const std::string &confContent) {
 	std::string			delim("{};");
-	std::vector<Token>	tokenList;
+	std::deque<Token>	tokenList;
 	std::string			word;
 
 	int startCol = 1;

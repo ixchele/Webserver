@@ -3,6 +3,7 @@ server{
 	host 127.0.0.1;
 	server_name exemple.com;
 	client_max_body_size 1M;
+
 	error_page 404 error_pages/404.html;
 
 	location / {
@@ -20,6 +21,7 @@ server{
 
 	location .py {
 		methods GET POST;
+		cgi_path /usr/bin/python3;
 	}
 
 	location /ancienne-page {
