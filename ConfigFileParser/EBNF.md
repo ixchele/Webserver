@@ -24,7 +24,7 @@
 <location_only_dir> ::= <methods_dir> | <return_dir> | <upload_dir>
 
 (* --- DIRECTIVES --- *)
-<listen_dir>        ::= "listen" <port_number>  { <port_number> }  ";"
+<listen_dir>        ::= "listen" <port_number> ";"
 <host_dir>          ::= "host" <ip_address> ";"
 <name_dir>          ::= "server_name" <string> { <string> } ";"
 <error_page_dir>    ::= "error_page" <int> { <int> } <string> ";"

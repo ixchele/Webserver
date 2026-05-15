@@ -8,23 +8,17 @@
 #include <vector>
 #include <deque>
 #include <iostream>
+#include <Token.hpp>
 
-enum	TokenType {
-	WORD,
-	BRACKET_O,
-	BRACKET_C,
-	SEMICOLON,
-};
-
-struct Token {
-    std::string		content;
-    int				line;
-	int				column;
-
-	Token();
-	Token(const std::string &content, int line, int column)
-		: content(content), line(line), column(column) {}
-};
+// struct Token {
+//     std::string		content;
+//     int				line;
+// 	int				column;
+//
+// 	Token();
+// 	Token(const std::string &content, int line, int column)
+// 		: content(content), line(line), column(column) {}
+// };
 
 
 std::ostream& operator<<(std::ostream& os, const Token& t);
