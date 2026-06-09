@@ -1,5 +1,7 @@
 #pragma once
 
+#include "LocationConfig.hpp"
+#include <ServerConfig.hpp>
 #include <Token.hpp>
 #include <deque>
 #include <map>
@@ -22,6 +24,10 @@ class	ConfigParser {
 
 		TokenList					tokenList;
 		TokenList::const_iterator	it;
+
+		ServerConfig					tmpServer;
+		LocationConfig					tmpLocation;
+		std::vector<ServerConfig>		servers;
 
 		// NOTE : Helpers
 		bool		peek(const std::string &expected);
@@ -71,5 +77,5 @@ class	ConfigParser {
 
 		ConfigParser(const TokenList &tokenList);
 
-		std::vector<std::string>	parse();
+		const std::vector<ServerConfig>	parse();
 };

@@ -1,7 +1,7 @@
-#include "ConfigParser.hpp"
-#include "Token.hpp"
+#include <ServerConfig.hpp>
+#include <ConfigParser.hpp>
+#include <Token.hpp>
 #include <iostream>
-#include <stdexcept>
 #include <ConfigFileParser.template.hpp>
 #include <vector>
 
@@ -172,16 +172,18 @@ void	ConfigParser::cgiPassDir() {
 void	ConfigParser::listenDir() {
 	consume("listen");
 
+
 	int	port;
 	std::stringstream	ssPort(this->currentContent());
 
 	if (!(ssPort >> port) || !ssPort.eof())
 		throw ConfigException("invalid port value", *this->it);
 
-	consume();
 
+	this->tmpServer.listen.push_back(port);
 	std::cout << "listen : " << port << std::endl;
 
+	consume();
 	consume(";");
 }
 
@@ -194,6 +196,8 @@ void	ConfigParser::hostDir() {
 	if (!(ssPort >> host) || !ssPort.eof())
 		throw ConfigException("invalid host", *this->it); 
 
+
+	this->tmpServer.host = host;
 	std::cout << "host : "<< host << std::endl;
 
 	consume();
@@ -209,6 +213,7 @@ void	ConfigParser::nameDir() {
 	if (!(ssPort >> servName) || !ssPort.eof())
 		throw ConfigException("invalid server name", *this->it); 
 
+	this->tmpServer.name = servName;
 	std::cout << "server_name : "<< servName << std::endl;
 
 	consume();
@@ -306,11 +311,14 @@ void	ConfigParser::serverBlock() {
 }
 
 void	ConfigParser::config() {
-	while (this->it != this->tokenList.end())
+	while (this->it != this->tokenList.end()) {
 		serverBlock();
+		this->servers.push_back(this->tmpServer);
+		this->tmpServer.resetConf();
+	}
 }
 
-std::vector<std::string>	ConfigParser::parse(void) {
+const std::vector<ServerConfig>	ConfigParser::parse(void) {
 	this->config();
-	return std::vector<std::string>();
+	return this->servers;
 }

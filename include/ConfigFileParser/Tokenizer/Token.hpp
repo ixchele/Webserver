@@ -21,3 +21,6 @@ struct Token {
 };
 
 typedef std::deque<Token> TokenList;
+
+std::ostream& operator<<(std::ostream& os, const Token& t);
+std::deque<Token>	tokenizer(const std::string &confContent);

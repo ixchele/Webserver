@@ -1,4 +1,5 @@
-#include <ConfigFile.hpp>
+#include <Token.hpp>
+#include <fstream>
 
 static std::string	extractFileContent(const std::string &confPath) {
 	std::ifstream	confIfs(confPath.c_str());
