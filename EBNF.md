@@ -15,21 +15,20 @@
                       | <index_dir>
                       | <autoindex_dir>
                       | <client_body_dir>
-                      | <cgi_extension_dir>
-                      | <cgi_path_dir>
+                      | <cgi_pass_dir>
                       | <error_page_dir>
                       | <return_dir>
 
 (* --- EXCLUSIVE --- *)
 <server_only_dir>   ::= <listen_dir> | <host_dir> | <name_dir>
 
-<location_only_dir> ::= <methods_dir> | <upload_enable_dir> | <upload_path_dir>
+<location_only_dir> ::= <methods_dir> | <upload_path_dir> | <upload_enable_dir>
 
 (* --- DIRECTIVES --- *)
 <listen_dir>        ::= "listen" <port_number> ";"
 <host_dir>          ::= "host" ( <ip_address> | <string> ) ";"
 <name_dir>          ::= "server_name" <string> { <string> } ";"
-<error_page_dir>    ::= "error_page" <int> { <int> } <string> ";"
+<error_page_dir>    ::= "error_page" <string> <int> { <int> } ";"
 <client_body_dir>   ::= "client_max_body_size" <size_value> ";"
 <root_dir>          ::= "root" <string> ";"
 <index_dir>         ::= "index" <string> { <string> } ";"
@@ -38,8 +37,7 @@
 <return_dir>        ::= "return" <int> <string> ";"
 <upload_enable_dir> ::= "upload_enable" ("on" | "off") ";"
 <upload_path_dir>   ::= "upload_path" <string> ";"
-<cgi_extension_dir> ::= "cgi_extension" <string> { <string> } ";"
-<cgi_path_dir>      ::= "cgi_path" <string> ";"
+<cgi_pass_dir>      ::= "cgi_pass" <string> <string> ";"
 
 (* --- TERMINALS --- *)
 <string>            ::= <char> { <char> }
@@ -48,7 +46,7 @@
 <port_number>       ::= <int>
 <ip_address>        ::= <int> "." <int> "." <int> "." <int>
 <size_value>        ::= <int> [ "K" | "M" | "G" | "k" | "m" | "g" ]
-<method_name>       ::= "GET" | "POST" | "DELETE"
+<method_name>       ::= "HEAD" | "GET" | "POST" | "DELETE"
 
 <digit>             ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 <char>              ::= <letter> | <digit> | "_" | "-" | "." | "/"
@@ -60,14 +58,11 @@
 (*
    🔴 MANDATORY (Absolute - Throw Error if missing)
    - <listen_dir>        : Required in <server_block> (For socket creation).
-   - <path>              : Implicitly required to create a <location_block>.
 
    🟡 CONDITIONAL & INHERITABLE (Required based on context)
    - <root_dir>          : Must exist at least at the <server_block> level 
-                           OR be redefined in ALL <location_block>s.
-   - <cgi_extension_dir> : Mandatory IF the location is dedicated to CGI.
-   - <cgi_path_dir>      : Mandatory IF <cgi_extension_dir> is present (and vice versa).
-   - <upload_path_dir>   : Mandatory IF <upload_enable_dir> is 'on'.
+                            OR be redefined in ALL <location_block>s.
+   - <upload_path_dir>   : Mandatory IF <upload_enable_dir> is set to "on".
 
    🟢 OPTIONAL (Managed via default values in constructors)
    - <host_dir>          : Default = "0.0.0.0" (Listens on all interfaces if omitted).
@@ -76,31 +71,9 @@
    - <index_dir>         : Default = "index.html". (Inherits from server if inside a location).
    - <autoindex_dir>     : Default = "off". (Inherits from server if inside a location).
    - <error_page_dir>    : Default = The C++ server generates hardcoded HTML pages (404, 500).
-   - <methods_dir>       : Default = GET allowed everywhere (or according to 42 subject rules).
-   - <return_dir>        : Default = No redirection.
+   - <methods_dir>       : Default = "GET" allowed everywhere.
+   - <return_dir>        : Default = "". (No redirection).
    - <upload_enable_dir> : Default = "off".
-*)
-(* ========================================================================= *)
-(* --- REPEATABILITY RULES (DUPLICATE CHECKING DURING PARSING) ---           *)
-(* ========================================================================= *)
-(*
-   REPEATABLE DIRECTIVES (Use std::vector or std::map, accumulate values)
-   - <error_page_dir>    : Can be repeated to define pages for different error codes.
-   - <listen_dir>        : Can be repeated to listen on multiple ports.
-   - <name_dir>          : Can be repeated to add multiple server names.
-   - <index_dir>         : Can be repeated to add multiple fallback index files.
-   - <location_block>    : Multiple routes allowed per server.
-
-   SINGLETON DIRECTIVES (Throw ConfigException if found twice in same block)
-   - <host_dir>          : Only one IP/host binding per server block.
-   - <root_dir>          : Only one root path per context.
-   - <client_body_dir>   : Only one size limit per context.
-   - <autoindex_dir>     : Must be uniquely 'on' or 'off'.
-   - <methods_dir>       : Defined once per location (can take multiple args in that line).
-   - <return_dir>        : Only one redirection rule per context.
-   - <upload_enable_dir> : Only one toggle per location.
-   - <upload_path_dir>   : Only one upload directory per location.
-   - <cgi_extension_dir> : Only one CGI extension line per location.
-   - <cgi_path_dir>      : Only one CGI path per location.
+   - <cgi_pass_dir>      : Default = Empty map. (No CGI executed unless specified).
 *)
 (* ========================================================================= *)
