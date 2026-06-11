@@ -5,7 +5,12 @@
 #include <unistd.h>
 
 Server::Server()
-	: m_sockFd(-1), m_numberOfClients(0)
+	: m_sockFd(-1)
+{
+}
+
+Server::Server(const ServerConfig& serverConfig)
+	: m_sockFd(-1), m_serverConfig(serverConfig)
 {
 }
 
@@ -20,30 +25,17 @@ void Server::creat_socket() {
 }
 
 void Server::bind_address() {
-    bind(m_sockFd, reinterpret_cast<sockaddr *>(&this->m_sockaddr), 16);
+    bind(m_sockFd, reinterpret_cast<sockaddr *>(), 16);
 }
 
 void Server::start_listening() {
     listen(this->m_sockFd, BACKLOG);
 }
 
-void Server::accept_client() {
-    int cfd = accept(this->m_sockFd, NULL, NULL);
-	this->m_clientsList[this->m_numberOfClients++] = cfd;
-}
-
-void Server::response() {
-    write(this->m_clientsList[this->m_numberOfClients - 1], "Accepted\n", 9);
-}
-
-void Server::close_connection() {
-    close(this->m_clientsList[this->m_numberOfClients - 1]);
-}
-
 int Server::get_sockFd() {
     return this->m_sockFd;
 }
 
-void Server::set_sockaddr(sockaddr_in &sockaddr) {
+void Server::set_addr() {
 	this->m_sockaddr = sockaddr;
 }
