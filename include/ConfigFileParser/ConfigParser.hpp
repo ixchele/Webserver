@@ -1,5 +1,6 @@
 #pragma once
 
+#include "CommonConfig.hpp"
 #include "LocationConfig.hpp"
 #include <ServerConfig.hpp>
 #include <Token.hpp>
@@ -8,9 +9,13 @@
 #include <stdexcept>
 #include <vector>
 
-#define GET 1
-#define POST 2
-#define DELETE 4
+
+// NOTE : available methods macros
+
+#define HEAD 1
+#define GET 2
+#define POST 4
+#define DELETE 8
 
 
 class	ConfigParser {
@@ -27,6 +32,7 @@ class	ConfigParser {
 
 		ServerConfig					tmpServer;
 		LocationConfig					tmpLocation;
+		CommonConfig					*currentBlock;
 		std::vector<ServerConfig>		servers;
 
 		// NOTE : Helpers
@@ -55,7 +61,7 @@ class	ConfigParser {
 		void        indexDir();
 		void        autoindexDir();
 		void        clientBodyDir();
-		void        cgiPassDir();
+		void		cgiPass();
 
 	public:
 
@@ -79,3 +85,6 @@ class	ConfigParser {
 
 		const std::vector<ServerConfig>	parse();
 };
+
+
+std::ostream& operator<<(std::ostream& os, const CommonConfig& conf);

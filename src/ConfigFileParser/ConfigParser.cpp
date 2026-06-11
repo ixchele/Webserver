@@ -1,6 +1,8 @@
+#include "CommonConfig.hpp"
 #include <ServerConfig.hpp>
 #include <ConfigParser.hpp>
 #include <Token.hpp>
+#include <cstddef>
 #include <iostream>
 #include <ConfigFileParser.template.hpp>
 #include <vector>
@@ -13,31 +15,30 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
 ConfigParser::ConfigParser(const TokenList &tokenList)
 	: tokenList(tokenList), it(tokenList.begin()){
 
-	PrintContainer(tokenList); //  BUG : for debug
-
 	this->serverDirectives["listen"] = &ConfigParser::listenDir;
 	this->serverDirectives["host"] = &ConfigParser::hostDir;
 	this->serverDirectives["server_name"] = &ConfigParser::nameDir;
-	this->serverDirectives["error_page"] = &ConfigParser::errorPageDir;
 	this->serverDirectives["location"] = &ConfigParser::locationBlock;
 
 	this->locationDirectives["methods"] = &ConfigParser::methodsDir;
-	this->locationDirectives["return"] = &ConfigParser::returnDir;
 	this->locationDirectives["upload_path"] = &ConfigParser::uploadDir;
 
 	this->communDirectives["root"] = &ConfigParser::rootDir;
 	this->communDirectives["index"] = &ConfigParser::indexDir;
 	this->communDirectives["autoindex"] = &ConfigParser::autoindexDir;
 	this->communDirectives["client_max_body_size"] = &ConfigParser::clientBodyDir;
-	this->communDirectives["cgi_extension"] = &ConfigParser::cgiPassDir;
-	// this->communDirectives["cgi_path"] = ;  TODO : implement cgi_path directive 
+	this->communDirectives["cgi_pass"] = &ConfigParser::cgiPass;
+	this->communDirectives["error_page"] = &ConfigParser::errorPageDir;
+	this->communDirectives["return"] = &ConfigParser::returnDir;
 
+	this->methodsAvailable["HEAD"] = HEAD;
 	this->methodsAvailable["GET"] = GET;
 	this->methodsAvailable["POST"] = POST;
 	this->methodsAvailable["DELETE"] = DELETE;
 }
 
 // NOTE : Helpers
+
 // ----------------------------
 bool	ConfigParser::peek(const std::string &expected = "") {
 	if (expected == "")
@@ -67,17 +68,18 @@ std::string	ConfigParser::currentContent(void) const {
 void	ConfigParser::methodsDir() {
 	consume("methods");
 
-	int	method = 0;
+	int	methods = 0;
 	while (this->currentContent() != ";") {
 		if (!methodsAvailable.count(this->currentContent()))
 			throw ConfigException("invalid method", *this->it);
 
-		method |= methodsAvailable[this->currentContent()];
+		methods |= methodsAvailable[this->currentContent()];
 
 		consume();
 	}
 
-	std::cout << "methods : " <<  method << std::endl;
+	this->tmpLocation.methods = methods;
+
 	consume(";");
 }
 
@@ -90,7 +92,7 @@ void	ConfigParser::rootDir() {
 	if (!(ssRoot >> root) || !ssRoot.eof())
 		throw ConfigException("invalid root", *this->it);
 
-	std::cout << "root : "<< root << std::endl;
+	this->currentBlock->root = root;
 
 	consume();
 	consume(";");
@@ -105,7 +107,7 @@ void	ConfigParser::indexDir() {
 	if (!(ssIndex >> index) || !ssIndex.eof())
 		throw ConfigException("invalid index", *this->it);
 
-	std::cout << "index : " << index << std::endl;
+	this->currentBlock->index.push_back(index);
 
 	consume();
 	consume(";");
@@ -120,7 +122,10 @@ void	ConfigParser::autoindexDir() {
 	if (!(ssAutoindex >> autoindex) || !ssAutoindex.eof())
 		throw ConfigException("invalid autoindex", *this->it);
 
-	std::cout << "autoindex : " << autoindex << std::endl;
+	if (autoindex != "off" && autoindex != "on")
+		throw ConfigException("autoindex should be on|off", *this->it);
+
+	this->currentBlock->autoindex = autoindex == "on" ? true : false;
 
 	consume();
 	consume(";");
@@ -143,7 +148,7 @@ void	ConfigParser::returnDir() {
 	if (!(ssPathPage >> pathPage) || !ssPathPage.eof())
 		throw ConfigException("invalid return path", *this->it);
 
-	std::cout << "return : " << statusCode << " " << pathPage << std::endl;
+	this->currentBlock->return_val = pathPage;
 
 	consume();
 	consume(";");
@@ -158,20 +163,37 @@ void	ConfigParser::uploadDir() {
 	if (!(ssUploadPath >> uploadPath) || !ssUploadPath.eof())
 		throw ConfigException("invalid upload path", *this->it);
 
-	std::cout << "upload_path : "<< uploadPath << std::endl;
+	this->tmpLocation.upload = uploadPath;
 
 	consume();
 	consume(";");
 }
 
-void	ConfigParser::cgiPassDir() {
+void	ConfigParser::cgiPass() {
+	consume("cgi_pass");
 
+	std::string	cgiExtension;
+	std::stringstream	ssCgiExtension(this->currentContent());
+
+	if (!(ssCgiExtension >> cgiExtension) || !ssCgiExtension.eof())
+		throw ConfigException("invalid cgi extension", *this->it);
+
+	consume();
+
+	std::string	cgiPath;
+	std::stringstream	ssCgiPath(this->currentContent());
+
+	if (!(ssCgiPath >> cgiPath) || !ssCgiPath.eof())
+		throw ConfigException("invalid cgi path", *this->it);
+
+	this->currentBlock->cgi_pass[cgiExtension] = cgiPath;
+
+	consume();
+	consume(";");
 }
-
 
 void	ConfigParser::listenDir() {
 	consume("listen");
-
 
 	int	port;
 	std::stringstream	ssPort(this->currentContent());
@@ -179,9 +201,7 @@ void	ConfigParser::listenDir() {
 	if (!(ssPort >> port) || !ssPort.eof())
 		throw ConfigException("invalid port value", *this->it);
 
-
 	this->tmpServer.listen.push_back(port);
-	std::cout << "listen : " << port << std::endl;
 
 	consume();
 	consume(";");
@@ -196,9 +216,7 @@ void	ConfigParser::hostDir() {
 	if (!(ssPort >> host) || !ssPort.eof())
 		throw ConfigException("invalid host", *this->it); 
 
-
 	this->tmpServer.host = host;
-	std::cout << "host : "<< host << std::endl;
 
 	consume();
 	consume(";");
@@ -207,16 +225,21 @@ void	ConfigParser::hostDir() {
 void	ConfigParser::nameDir() {
 	consume("server_name");
 
-	std::string			servName;
-	std::stringstream	ssPort(this->currentContent());
+	std::vector<std::string>	servNames;
 
-	if (!(ssPort >> servName) || !ssPort.eof())
-		throw ConfigException("invalid server name", *this->it); 
+	while (this->currentContent() != ";") {
+		std::string			servName;
+		std::stringstream	ssPort(this->currentContent());
 
-	this->tmpServer.name = servName;
-	std::cout << "server_name : "<< servName << std::endl;
+		if (!(ssPort >> servName) || !ssPort.eof())
+			throw ConfigException("invalid server name", *this->it); 
 
-	consume();
+		servNames.push_back(servName);
+		consume();
+	}
+
+	this->tmpServer.name = servNames;
+
 	consume(";");
 }
 
@@ -237,7 +260,7 @@ void	ConfigParser::errorPageDir() {
 	if (!(ssPathPage >> pathPage) || !ssPathPage.eof())
 		throw ConfigException("invalid error page path", *this->it); 
 
-	std::cout << "error_page : " << statusCode << " " << pathPage << std::endl;
+	this->currentBlock->error_page[statusCode] = pathPage;
 
 	consume();
 	consume(";");
@@ -246,13 +269,17 @@ void	ConfigParser::errorPageDir() {
 void	ConfigParser::clientBodyDir() {
 	consume("client_max_body_size");
 
-	std::string			size;
-	std::stringstream	ssPort(this->currentContent());
+	std::size_t			size;
+	char				unit;
+	std::stringstream	ssBodySize(this->currentContent());
 
-	if (!(ssPort >> size) || !ssPort.eof())
+	if (!(ssBodySize >> size) || !(ssBodySize >> unit))
 		throw ConfigException("invalid client body size", *this->it); 
 
-	std::cout << "body size : "<< size << std::endl;
+	if (std::string("KMGkmg").find(unit) == std::string::npos)
+		throw ConfigException("invalid size unit", *this->it);
+
+	this->currentBlock->client_max_body_size = size; //  WARN : size should be scaled
 
 	consume();
 	consume(";");
@@ -272,13 +299,17 @@ void	ConfigParser::locationDirective() {
 void	ConfigParser::locationBlock() {
 	consume("location");
 
+    CommonConfig	*previousBlock = this->currentBlock; 
+    this->tmpLocation.resetConf();
+    this->currentBlock = &this->tmpLocation;
+
 	std::string			path;
 	std::stringstream	ssPath(this->currentContent());
 
 	if (!(ssPath >> path) || !ssPath.eof())
 		throw ConfigException("invalid location path", *this->it); 
 
-	std::cout << "location path : " << path << std::endl;
+	this->tmpLocation.path = path;
 
 	consume();
 	consume("{");
@@ -287,6 +318,9 @@ void	ConfigParser::locationBlock() {
 		locationDirective();
 
 	consume("}");
+
+    this->tmpServer.locations.push_back(this->tmpLocation);
+    this->currentBlock = previousBlock; 
 }
 
 void	ConfigParser::serverDirective() {
@@ -301,8 +335,12 @@ void	ConfigParser::serverDirective() {
 }
 
 void	ConfigParser::serverBlock() {
+
 	consume("server");
 	consume("{");
+
+	this->tmpServer.resetConf();
+	this->currentBlock = &this->tmpServer;
 
 	while (this->currentContent() != "}")
 		serverDirective();
@@ -311,14 +349,19 @@ void	ConfigParser::serverBlock() {
 }
 
 void	ConfigParser::config() {
-	while (this->it != this->tokenList.end()) {
+	while (this->it->content != "") {
 		serverBlock();
+		tmpServer.applyInheritance();
 		this->servers.push_back(this->tmpServer);
-		this->tmpServer.resetConf();
 	}
 }
 
 const std::vector<ServerConfig>	ConfigParser::parse(void) {
 	this->config();
 	return this->servers;
+}
+
+std::ostream& operator<<(std::ostream& os, const CommonConfig& conf) {
+    os << conf.str();
+    return os;
 }

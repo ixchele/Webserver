@@ -8,4 +8,6 @@ struct	LocationConfig : public CommonConfig {
 
 	LocationConfig(void);
 	void	resetConf(void);
+
+	virtual std::string toString(const std::string& indent = "  ") const;
 };

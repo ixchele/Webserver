@@ -6,11 +6,13 @@
 struct	ServerConfig : public CommonConfig {
 	std::vector<int>			listen;
 	std::string					host;
-	std::string					name;
+	std::vector<std::string>	name;
 	std::vector<LocationConfig>	locations;
 
 	ServerConfig(void);
 	~ServerConfig(void);
 
 	void	resetConf(void);
+	virtual std::string str(const std::string& indent = "") const;
+	void	applyInheritance();
 };
