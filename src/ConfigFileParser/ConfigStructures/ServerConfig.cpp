@@ -45,7 +45,7 @@ void    ServerConfig::applyInheritance() {
 		if (location->autoindex == false && this->autoindex == true)
 			location->autoindex = this->autoindex;
 
-		if (location->client_max_body_size == -1 && this->client_max_body_size != -1)
+		if (location->client_max_body_size == 1024 && this->client_max_body_size != 1024)
 			location->client_max_body_size = this->client_max_body_size;
 
 		if (!this->error_page.empty())

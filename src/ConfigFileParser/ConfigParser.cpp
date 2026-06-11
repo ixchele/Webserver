@@ -2,6 +2,8 @@
 #include <ServerConfig.hpp>
 #include <ConfigParser.hpp>
 #include <Token.hpp>
+#include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <ConfigFileParser.template.hpp>
@@ -207,7 +209,6 @@ void	ConfigParser::listenDir() {
 	consume(";");
 }
 
-// TODO : fix chi 7aja
 void	ConfigParser::hostDir() {
 	consume("host");
 
@@ -247,40 +248,51 @@ void	ConfigParser::nameDir() {
 void	ConfigParser::errorPageDir() {
 	consume("error_page");
 
-	int					statusCode;
-	std::stringstream	ssStatusCode(this->currentContent());
+	std::vector<std::string> args;
 
-	if (!(ssStatusCode >> statusCode) || !ssStatusCode.eof())
-		throw ConfigException("invalid error code", *this->it); 
-
-	consume();
-
-	std::string			pathPage;
-	std::stringstream	ssPathPage(this->currentContent());
-
-	if (!(ssPathPage >> pathPage) || !ssPathPage.eof())
-		throw ConfigException("invalid error page path", *this->it); 
-
-	this->currentBlock->error_page[statusCode] = pathPage;
-
-	consume();
+	while (this->currentContent() != ";") {
+		args.push_back(this->currentContent());
+		consume();
+	}
 	consume(";");
+
+	if (args.size() < 2)
+		throw ConfigException("error_page requires at least 2 arguments", *this->it);
+
+	std::string pathPage = args.back();
+
+	for (size_t i = 0; i < args.size() - 1; ++i) {
+		int statusCode;
+		std::stringstream ssStatusCode(args[i]);
+
+		if (!(ssStatusCode >> statusCode) || !ssStatusCode.eof()) {
+			throw ConfigException("invalid error code", *this->it); 
+		}
+
+		this->currentBlock->error_page[statusCode] = pathPage;
+	}
 }
 
 void	ConfigParser::clientBodyDir() {
 	consume("client_max_body_size");
 
 	std::size_t			size;
-	char				unit;
+	char				unit = 'k';
 	std::stringstream	ssBodySize(this->currentContent());
 
-	if (!(ssBodySize >> size) || !(ssBodySize >> unit))
+	if (!(ssBodySize >> size))
 		throw ConfigException("invalid client body size", *this->it); 
 
+	ssBodySize >> unit;
 	if (std::string("KMGkmg").find(unit) == std::string::npos)
 		throw ConfigException("invalid size unit", *this->it);
 
-	this->currentBlock->client_max_body_size = size; //  WARN : size should be scaled
+	unit = std::tolower(unit);
+	switch (unit) {
+		case 'k': this->currentBlock->client_max_body_size = size * 1024; break;
+		case 'm': this->currentBlock->client_max_body_size = size * std::pow(1024, 2); break;
+		case 'g': this->currentBlock->client_max_body_size = size * std::pow(1024, 3); break;
+	}
 
 	consume();
 	consume(";");
