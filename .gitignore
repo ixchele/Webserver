@@ -1,6 +1,6 @@
 *.o
-./obj/
-./playground/
+obj/
+playground/
 compile_flags.txt
 Webserver
 
