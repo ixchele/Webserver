@@ -207,6 +207,7 @@ void	ConfigParser::listenDir() {
 	consume(";");
 }
 
+// TODO : fix chi 7aja
 void	ConfigParser::hostDir() {
 	consume("host");
 
@@ -238,7 +239,7 @@ void	ConfigParser::nameDir() {
 		consume();
 	}
 
-	this->tmpServer.name = servNames;
+	this->tmpServer.names = servNames;
 
 	consume(";");
 }
