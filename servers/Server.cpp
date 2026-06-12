@@ -12,6 +12,12 @@ Server::Server()
 Server::Server(const ServerConfig& serverConfig)
 	: m_sockFd(-1), m_serverConfig(serverConfig)
 {
+    
+}
+
+Server::~Server() {
+    if (this->m_sockFd != -1)
+        close(this->m_sockFd);
 }
 
 void Server::run() {
@@ -20,16 +26,17 @@ void Server::run() {
     start_listening();
 }
 
-void Server::creat_socket() {
+int Server::creat_socket() {
     this->m_sockFd = socket(AF_INET, SOCK_STREAM, 0);
+    return this->m_sockFd;
 }
 
-void Server::bind_address() {
-    bind(m_sockFd, reinterpret_cast<sockaddr *>(), 16);
+int Server::bind_address() {
+    return bind(m_sockFd, reinterpret_cast<sockaddr *>(), 16);
 }
 
-void Server::start_listening() {
-    listen(this->m_sockFd, BACKLOG);
+int Server::start_listening() {
+    return listen(this->m_sockFd, BACKLOG);
 }
 
 int Server::get_sockFd() {

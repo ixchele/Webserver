@@ -27,14 +27,14 @@ class Server
     
     void set_addr();
 
-    void creat_socket();
-    void bind_address();
-    void start_listening();
+    int creat_socket();
+    int bind_address();
+    int start_listening();
     void run();
-		//~Server();
+		~Server();
 
   private:
     sockaddr_in addr;
-    const ServerConfig m_serverConfig;
+    
     int m_sockFd;
 };
