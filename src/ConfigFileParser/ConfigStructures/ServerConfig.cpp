@@ -5,7 +5,7 @@
 #include <sstream>
 #include <vector>
 
-ServerConfig::ServerConfig() : name("exemple.com") {
+ServerConfig::ServerConfig() {
 	//pass
 }
 
@@ -16,7 +16,7 @@ ServerConfig::~ServerConfig(void) {
 void	ServerConfig::resetConf(void) {
 	this->listen.clear();
 	this->host.clear();
-	this->name = "exemple.com";
+	this->names.clear();
 	this->locations.clear();
 	CommonConfig::resetConf();
 }
@@ -45,7 +45,7 @@ void    ServerConfig::applyInheritance() {
 		if (location->autoindex == false && this->autoindex == true)
 			location->autoindex = this->autoindex;
 
-		if (location->client_max_body_size == -1 && this->client_max_body_size != -1)
+		if (location->client_max_body_size == 1024 && this->client_max_body_size != 1024)
 			location->client_max_body_size = this->client_max_body_size;
 
 		if (!this->error_page.empty())
@@ -75,7 +75,14 @@ std::string ServerConfig::str(const std::string& indent) const {
 	ss << "\n";
 
 	ss << indent << "host: " << (host.empty() ? "(empty)" : host) << "\n";
-	ss << indent << "name: " << (name.empty() ? "(empty)" : name) << "\n";
+	if (this->names.empty())
+		ss << indent << "names: " << "(empty)" << "\n";
+	else {
+		ss << indent << "names: " << "[";
+		for (std::vector<std::string>::const_iterator it = names.begin(); it != names.end(); ++it)
+			ss << *it << (it + 1 == names.end() ? "" : ", ");
+		ss << "]" << std::endl;
+	}
 
 	ss << CommonConfig::str(indent);
 

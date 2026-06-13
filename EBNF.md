@@ -28,7 +28,7 @@
 <listen_dir>        ::= "listen" <port_number> ";"
 <host_dir>          ::= "host" ( <ip_address> | <string> ) ";"
 <name_dir>          ::= "server_name" <string> { <string> } ";"
-<error_page_dir>    ::= "error_page" <string> <int> { <int> } ";"
+<error_page_dir>    ::= "error_page" <int> { <int> } <string> ";"
 <client_body_dir>   ::= "client_max_body_size" <size_value> ";"
 <root_dir>          ::= "root" <string> ";"
 <index_dir>         ::= "index" <string> { <string> } ";"

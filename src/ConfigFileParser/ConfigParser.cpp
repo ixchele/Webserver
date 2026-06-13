@@ -2,6 +2,8 @@
 #include <ServerConfig.hpp>
 #include <ConfigParser.hpp>
 #include <Token.hpp>
+#include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <ConfigFileParser.template.hpp>
@@ -201,7 +203,7 @@ void	ConfigParser::listenDir() {
 	if (!(ssPort >> port) || !ssPort.eof())
 		throw ConfigException("invalid port value", *this->it);
 
-	this->tmpServer.listen.push_back(port);
+	this->tmpServer->listen.push_back(port);
 
 	consume();
 	consume(";");
@@ -216,7 +218,7 @@ void	ConfigParser::hostDir() {
 	if (!(ssPort >> host) || !ssPort.eof())
 		throw ConfigException("invalid host", *this->it); 
 
-	this->tmpServer.host = host;
+	this->tmpServer->host = host;
 
 	consume();
 	consume(";");
@@ -238,7 +240,7 @@ void	ConfigParser::nameDir() {
 		consume();
 	}
 
-	this->tmpServer.name = servNames;
+	this->tmpServer->names = servNames;
 
 	consume(";");
 }
@@ -246,40 +248,51 @@ void	ConfigParser::nameDir() {
 void	ConfigParser::errorPageDir() {
 	consume("error_page");
 
-	int					statusCode;
-	std::stringstream	ssStatusCode(this->currentContent());
+	std::vector<std::string> args;
 
-	if (!(ssStatusCode >> statusCode) || !ssStatusCode.eof())
-		throw ConfigException("invalid error code", *this->it); 
-
-	consume();
-
-	std::string			pathPage;
-	std::stringstream	ssPathPage(this->currentContent());
-
-	if (!(ssPathPage >> pathPage) || !ssPathPage.eof())
-		throw ConfigException("invalid error page path", *this->it); 
-
-	this->currentBlock->error_page[statusCode] = pathPage;
-
-	consume();
+	while (this->currentContent() != ";") {
+		args.push_back(this->currentContent());
+		consume();
+	}
 	consume(";");
+
+	if (args.size() < 2)
+		throw ConfigException("error_page requires at least 2 arguments", *this->it);
+
+	std::string pathPage = args.back();
+
+	for (size_t i = 0; i < args.size() - 1; ++i) {
+		int statusCode;
+		std::stringstream ssStatusCode(args[i]);
+
+		if (!(ssStatusCode >> statusCode) || !ssStatusCode.eof()) {
+			throw ConfigException("invalid error code", *this->it); 
+		}
+
+		this->currentBlock->error_page[statusCode] = pathPage;
+	}
 }
 
 void	ConfigParser::clientBodyDir() {
 	consume("client_max_body_size");
 
 	std::size_t			size;
-	char				unit;
+	char				unit = 'k';
 	std::stringstream	ssBodySize(this->currentContent());
 
-	if (!(ssBodySize >> size) || !(ssBodySize >> unit))
+	if (!(ssBodySize >> size))
 		throw ConfigException("invalid client body size", *this->it); 
 
+	ssBodySize >> unit;
 	if (std::string("KMGkmg").find(unit) == std::string::npos)
 		throw ConfigException("invalid size unit", *this->it);
 
-	this->currentBlock->client_max_body_size = size; //  WARN : size should be scaled
+	unit = std::tolower(unit);
+	switch (unit) {
+		case 'k': this->currentBlock->client_max_body_size = size * 1024; break;
+		case 'm': this->currentBlock->client_max_body_size = size * std::pow(1024, 2); break;
+		case 'g': this->currentBlock->client_max_body_size = size * std::pow(1024, 3); break;
+	}
 
 	consume();
 	consume(";");
@@ -319,7 +332,7 @@ void	ConfigParser::locationBlock() {
 
 	consume("}");
 
-    this->tmpServer.locations.push_back(this->tmpLocation);
+    this->tmpServer->locations.push_back(this->tmpLocation);
     this->currentBlock = previousBlock; 
 }
 
@@ -339,8 +352,9 @@ void	ConfigParser::serverBlock() {
 	consume("server");
 	consume("{");
 
-	this->tmpServer.resetConf();
-	this->currentBlock = &this->tmpServer;
+	// this->tmpServer.resetConf();
+	this->tmpServer = new ServerConfig();
+	this->currentBlock = this->tmpServer;
 
 	while (this->currentContent() != "}")
 		serverDirective();
@@ -351,12 +365,12 @@ void	ConfigParser::serverBlock() {
 void	ConfigParser::config() {
 	while (this->it->content != "") {
 		serverBlock();
-		tmpServer.applyInheritance();
+		tmpServer->applyInheritance();
 		this->servers.push_back(this->tmpServer);
 	}
 }
 
-const std::vector<ServerConfig>	ConfigParser::parse(void) {
+const std::vector<ServerConfig*>	ConfigParser::parse(void) {
 	this->config();
 	return this->servers;
 }

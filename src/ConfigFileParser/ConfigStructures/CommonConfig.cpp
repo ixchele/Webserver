@@ -17,7 +17,7 @@ void	CommonConfig::resetConf(void) {
 	this->root = "";
 	this->index.clear();
 	this->autoindex = false;
-	this->client_max_body_size = 1;
+	this->client_max_body_size = 1024;
 	this->cgi_pass.clear();
 	this->error_page.clear();
 	this->return_val = "";

@@ -6,7 +6,7 @@
 struct	ServerConfig : public CommonConfig {
 	std::vector<int>			listen;
 	std::string					host;
-	std::vector<std::string>	name;
+	std::vector<std::string>	names;
 	std::vector<LocationConfig>	locations;
 
 	ServerConfig(void);

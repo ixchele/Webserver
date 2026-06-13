@@ -9,7 +9,7 @@ struct	CommonConfig {
 	std::string							root;
 	std::vector<std::string>			index;
 	bool								autoindex;
-	int							client_max_body_size;
+	int									client_max_body_size;
 	std::map<std::string, std::string>	cgi_pass;
 	std::map<int, std::string>			error_page;
 	std::string							return_val;
