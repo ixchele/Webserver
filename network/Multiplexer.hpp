@@ -4,8 +4,8 @@
 
 using std::vector;
 
-// this Webserver will manage all servers from config file
-class WebServer
+// this Multiplexer will manage all servers from config file
+class Multiplexer
 {
 public:
 	void run();

@@ -1,5 +1,6 @@
 #pragma once
-#include "ServerConfig.hpp"
+#include "Client.hpp"
+#include <ServerConfig.hpp>
 #include <netinet/in.h>
 #include <string>
 #include <sys/socket.h>
@@ -17,24 +18,25 @@ using std::vector;
 
 typedef char methods_t;
 
-class Socket
+class Server
 {
   public:
-    Socket(const int &addr, const short &port, const ServerConfig *&config);
-    Socket();
+    Server(const short &port, const ServerConfig *&config);
+    Server();
 
-    int get_sockFd();
+    int get_fd();
 
     void set_addr();
 
     int creat_socket();
     int bind_address();
     int start_listening();
+    Client accept_connection();
     void run();
-    ~Socket();
+    ~Server();
 
   private:
-    int m_port;
-    int m_sockFd;
+    sockaddr_in m_addr;
+    int m_fd;
     ServerConfig *m_config;
 };
