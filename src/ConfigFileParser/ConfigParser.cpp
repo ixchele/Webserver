@@ -203,7 +203,7 @@ void	ConfigParser::listenDir() {
 	if (!(ssPort >> port) || !ssPort.eof())
 		throw ConfigException("invalid port value", *this->it);
 
-	this->tmpServer.listen.push_back(port);
+	this->tmpServer->listen.push_back(port);
 
 	consume();
 	consume(";");
@@ -218,7 +218,7 @@ void	ConfigParser::hostDir() {
 	if (!(ssPort >> host) || !ssPort.eof())
 		throw ConfigException("invalid host", *this->it); 
 
-	this->tmpServer.host = host;
+	this->tmpServer->host = host;
 
 	consume();
 	consume(";");
@@ -240,7 +240,7 @@ void	ConfigParser::nameDir() {
 		consume();
 	}
 
-	this->tmpServer.names = servNames;
+	this->tmpServer->names = servNames;
 
 	consume(";");
 }
@@ -332,7 +332,7 @@ void	ConfigParser::locationBlock() {
 
 	consume("}");
 
-    this->tmpServer.locations.push_back(this->tmpLocation);
+    this->tmpServer->locations.push_back(this->tmpLocation);
     this->currentBlock = previousBlock; 
 }
 
@@ -352,8 +352,9 @@ void	ConfigParser::serverBlock() {
 	consume("server");
 	consume("{");
 
-	this->tmpServer.resetConf();
-	this->currentBlock = &this->tmpServer;
+	// this->tmpServer.resetConf();
+	this->tmpServer = new ServerConfig();
+	this->currentBlock = this->tmpServer;
 
 	while (this->currentContent() != "}")
 		serverDirective();
@@ -364,12 +365,12 @@ void	ConfigParser::serverBlock() {
 void	ConfigParser::config() {
 	while (this->it->content != "") {
 		serverBlock();
-		tmpServer.applyInheritance();
+		tmpServer->applyInheritance();
 		this->servers.push_back(this->tmpServer);
 	}
 }
 
-const std::vector<ServerConfig>	ConfigParser::parse(void) {
+const std::vector<ServerConfig*>	ConfigParser::parse(void) {
 	this->config();
 	return this->servers;
 }

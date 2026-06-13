@@ -1,6 +1,7 @@
 // #include <ConfigFile.hpp>
 // #include <ConfigFileParser.template.hpp>
 // #include <vector>
+#include "ServerConfig.hpp"
 #include <ConfigParser.hpp>
 #include <exception>
 #include <iostream>
@@ -11,12 +12,12 @@
 int	main(int ac, char **av) {
 	if (ac != 2)
 		return 1;
+	TokenList	tokenList = tokenizer(av[1]);
+	ConfigParser	lexer(tokenList);
+	std::vector<ServerConfig*> servers;
 	try {
-		TokenList	tokenList = tokenizer(av[1]);
-		ConfigParser	lexer = ConfigParser(tokenList);
-		std::vector<ServerConfig> servers = lexer.parse();
-		std::cout << servers[0];
-
+		servers = lexer.parse();
+		std::cout << *servers[0];
 	} catch (ConfigParser::ConfigException &e) {
 		std::cout << e.what() << std::endl;
 	} catch (std::exception &e) {

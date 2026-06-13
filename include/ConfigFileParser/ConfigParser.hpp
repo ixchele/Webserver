@@ -30,10 +30,10 @@ class	ConfigParser {
 		TokenList					tokenList;
 		TokenList::const_iterator	it;
 
-		ServerConfig					tmpServer;
+		ServerConfig					*tmpServer;
 		LocationConfig					tmpLocation;
 		CommonConfig					*currentBlock;
-		std::vector<ServerConfig>		servers;
+		std::vector<ServerConfig*>		servers;
 
 		// NOTE : Helpers
 		bool		peek(const std::string &expected);
@@ -83,8 +83,7 @@ class	ConfigParser {
 
 		ConfigParser(const TokenList &tokenList);
 
-		const std::vector<ServerConfig>	parse();
+		const std::vector<ServerConfig*>	parse();
 };
-
 
 std::ostream& operator<<(std::ostream& os, const CommonConfig& conf);
