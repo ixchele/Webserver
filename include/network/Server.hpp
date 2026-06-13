@@ -1,5 +1,5 @@
 #pragma once
-#include "Client.hpp"
+#include <Client.hpp>
 #include <ServerConfig.hpp>
 #include <netinet/in.h>
 #include <string>
@@ -21,7 +21,7 @@ typedef char methods_t;
 class Server
 {
   public:
-    Server(const short &port, const ServerConfig *&config);
+    Server(const short &port, const ServerConfig *config);
     Server();
 
     int get_fd();
@@ -33,10 +33,13 @@ class Server
     int start_listening();
     Client accept_connection();
     void run();
+
+    static void generate_servers(vector <Server> &v_servers, vector<ServerConfig*> &v_configs);
+
     ~Server();
 
   private:
     sockaddr_in m_addr;
     int m_fd;
-    ServerConfig *m_config;
+    const ServerConfig *m_config;
 };
