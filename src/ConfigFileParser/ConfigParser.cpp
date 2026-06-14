@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <iostream>
 #include <ConfigFileParser.template.hpp>
 #include <vector>
@@ -37,6 +38,11 @@ ConfigParser::ConfigParser(const TokenList &tokenList)
 	this->methodsAvailable["GET"] = GET;
 	this->methodsAvailable["POST"] = POST;
 	this->methodsAvailable["DELETE"] = DELETE;
+}
+
+ConfigParser::~ConfigParser(void) {
+	for (std::size_t i = 0; i < servers.size(); ++i)
+		delete servers[i];
 }
 
 // NOTE : Helpers
