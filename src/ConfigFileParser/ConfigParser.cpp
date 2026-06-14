@@ -224,7 +224,7 @@ void	ConfigParser::hostDir() {
 	if (!(ssPort >> host) || !ssPort.eof())
 		throw ConfigException("invalid host", *this->it); 
 
-	this->tmpServer->host = host;
+	this->tmpServer->hosts.push_back(host);
 
 	consume();
 	consume(";");
