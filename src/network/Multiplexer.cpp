@@ -8,21 +8,14 @@ void Multiplexer::run_all_servers() {
 }
 
 Multiplexer::Multiplexer(const vector<ServerConfig*> &v_configs) {
-  for (size_t i = 0; i < v_configs.size(); i++)
+  for (size_t confs = 0; confs < v_configs.size(); confs++)
     {
-        for (size_t j = 0; j < v_configs[i]->listen.size(); j++)
+      for (size_t hosts = 0; hosts < v_configs[confs]->hosts.size(); hosts++)
+      {
+        for (size_t ports = 0; ports < v_configs[confs]->listen.size(); ports++)
         {
-            this->v_servers.push_back(Server(v_configs[i]->listen[j], v_configs[i]));
+          this->v_servers.push_back(Server(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports], v_configs[confs]));
         }
-    }
-}
-
-void Multiplexer::generate_servers(const vector<ServerConfig*> &v_configs) {
-    for (size_t i = 0; i < v_configs.size(); i++)
-    {
-        for (size_t j = 0; j < v_configs[i]->listen.size(); j++)
-        {
-            this->v_servers.push_back(Server(v_configs[i]->listen[j], v_configs[i]));
-        }
+      }
     }
 }

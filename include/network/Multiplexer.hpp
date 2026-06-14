@@ -11,9 +11,7 @@ class Multiplexer
 public:
 	vector <Server> v_servers;
 
-  Multiplexer();
   Multiplexer(const vector<ServerConfig*> &v_configs);
-  void generate_servers(const vector<ServerConfig*> &v_configs);
 
 	void run_all_servers();
 	// void response_loop();

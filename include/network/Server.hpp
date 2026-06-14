@@ -24,7 +24,7 @@ class Server
     sockaddr_in m_addr;
     const ServerConfig *m_config;
 
-    Server(const short &port, const ServerConfig *config);
+    Server(const std::string &ip, const short &port, const ServerConfig *config);
     Server();
 
     int get_fd();

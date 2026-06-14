@@ -12,12 +12,25 @@ Server::Server()
     std::memset(&this->m_addr, 0, sizeof(m_addr));
 }
 
-Server::Server(const short &port, const ServerConfig *config)
+Server::Server(const std::string &ip, const short &port, const ServerConfig *config)
 	: m_fd(-1)
 {
     std::memset(&this->m_addr, 0, sizeof(m_addr));
-    m_addr.sin_port = htons(port);
     m_config = config;
+    addrinfo hints, *res;
+
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    if (getaddrinfo(ip.c_str(), NULL, &hints, &res) != 0)
+    {
+        // throw exception
+    }
+    else
+    {
+        this->m_addr = *((sockaddr_in *)res->ai_addr);
+    }
+    m_addr.sin_port = htons(port);
 }
 
 Server::~Server() {
@@ -56,11 +69,7 @@ int Server::get_fd() {
 }
 
 void Server::set_addr() {
-	// addrinfo hints, *res;
-
-    // std::memset(&hints, 0, sizeof(m_addr));
-    // hints.ai_family = AF_INET;
-    // hints.ai_socktype = SOCK_STREAM;
+	
     
 }
 

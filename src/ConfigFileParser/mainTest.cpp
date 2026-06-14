@@ -25,10 +25,9 @@ int	main(int ac, char **av) {
 	} catch (std::exception &e) {
 		std::cout << e.what() << std::endl;
 	}
-	Multiplexer multiplexer();
-	multiplexer.generate_servers(v_configs);
+	Multiplexer multiplexer(v_configs);
 	for (size_t i = 0; i < multiplexer.v_servers.size(); i++)
 	{
-		std::cout << "listen " << multiplexer.v_servers[i].m_config->host << ":" << multiplexer.v_servers[i].m_addr.sin_port << std::endl;
+		std::cout << "listen " << multiplexer.v_servers[i].m_addr.sin_addr.s_addr << ":" << multiplexer.v_servers[i].m_addr.sin_port << std::endl;
 	}
 }
