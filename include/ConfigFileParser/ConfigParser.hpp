@@ -82,6 +82,7 @@ class	ConfigParser {
 		};
 
 		ConfigParser(const TokenList &tokenList);
+		~ConfigParser(void);
 
 		const std::vector<ServerConfig*>	parse();
 };

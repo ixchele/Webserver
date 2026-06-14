@@ -15,7 +15,7 @@ ServerConfig::~ServerConfig(void) {
 
 void	ServerConfig::resetConf(void) {
 	this->listen.clear();
-	this->host.clear();
+	this->hosts.clear();
 	this->names.clear();
 	this->locations.clear();
 	CommonConfig::resetConf();
@@ -74,7 +74,10 @@ std::string ServerConfig::str(const std::string& indent) const {
 	}
 	ss << "\n";
 
-	ss << indent << "host: " << (host.empty() ? "(empty)" : host) << "\n";
+	ss << indent << "hosts: " << '[';
+	for (std::vector<std::string>::const_iterator it = hosts.begin(); it != hosts.end(); ++it)
+		ss << *it << (it + 1 == hosts.end() ? "" : ", ");
+	ss << "]" << std::endl;
 	if (this->names.empty())
 		ss << indent << "names: " << "(empty)" << "\n";
 	else {
