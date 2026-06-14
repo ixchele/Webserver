@@ -8,6 +8,7 @@
 #include <ostream>
 #include <vector>
 #include <Server.hpp>
+#include <Multiplexer.hpp>
 
 
 int	main(int ac, char **av) {
@@ -24,10 +25,10 @@ int	main(int ac, char **av) {
 	} catch (std::exception &e) {
 		std::cout << e.what() << std::endl;
 	}
-	std::vector<Server> v_servers;
-	Server::generate_servers(v_servers, v_configs);
-	for (size_t i = 0; i < v_servers.size(); i++)
+	Multiplexer multiplexer();
+	multiplexer.generate_servers(v_configs);
+	for (size_t i = 0; i < multiplexer.v_servers.size(); i++)
 	{
-		std::cout << "Port [" << i << "]: " << v_servers[i].get_fd() << std::endl;
+		std::cout << "listen " << multiplexer.v_servers[i].m_config->host << ":" << multiplexer.v_servers[i].m_addr.sin_port << std::endl;
 	}
 }

@@ -21,6 +21,9 @@ typedef char methods_t;
 class Server
 {
   public:
+    sockaddr_in m_addr;
+    const ServerConfig *m_config;
+
     Server(const short &port, const ServerConfig *config);
     Server();
 
@@ -34,12 +37,8 @@ class Server
     Client accept_connection();
     void run();
 
-    static void generate_servers(vector <Server> &v_servers, vector<ServerConfig*> &v_configs);
-
     ~Server();
 
   private:
-    sockaddr_in m_addr;
     int m_fd;
-    const ServerConfig *m_config;
 };

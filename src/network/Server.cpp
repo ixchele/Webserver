@@ -13,10 +13,11 @@ Server::Server()
 }
 
 Server::Server(const short &port, const ServerConfig *config)
-	: m_fd(-1), m_config(config)
+	: m_fd(-1)
 {
     std::memset(&this->m_addr, 0, sizeof(m_addr));
     m_addr.sin_port = htons(port);
+    m_config = config;
 }
 
 Server::~Server() {
@@ -63,12 +64,4 @@ void Server::set_addr() {
     
 }
 
-void Server::generate_servers(vector <Server> &v_servers, vector<ServerConfig*> &v_configs) {
-    for (size_t i = 0; i < v_configs.size(); i++)
-    {
-        for (size_t j = 0; j < v_configs[i]->listen.size(); j++)
-        {
-            v_servers.push_back(Server(v_configs[i]->listen[j], v_configs[i]));
-        }
-    }
-}
+
