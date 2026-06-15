@@ -29,11 +29,6 @@ class Server
 
     int get_fd();
 
-    void set_addr();
-
-    int creat_socket();
-    int bind_address();
-    int start_listening();
     Client accept_connection();
     void run();
 
@@ -41,4 +36,8 @@ class Server
 
   private:
     int m_fd;
+
+    int creat_socket();
+    int bind_address();
+    int start_listening();
 };

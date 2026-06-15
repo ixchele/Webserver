@@ -67,10 +67,3 @@ Client Server::accept_connection() {
 int Server::get_fd() {
     return this->m_fd;
 }
-
-void Server::set_addr() {
-	
-    
-}
-
-
