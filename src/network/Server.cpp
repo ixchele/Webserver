@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <cstring>
+#include <stdexcept>
 
 Server::Server()
 	: m_fd(-1)
@@ -24,7 +25,7 @@ Server::Server(const std::string &ip, const short &port, const ServerConfig *con
     hints.ai_socktype = SOCK_STREAM;
     if (getaddrinfo(ip.c_str(), NULL, &hints, &res) != 0)
     {
-        // throw exception
+        throw std::runtime_error(ip + " is not a valid ip address");
     }
     else
     {

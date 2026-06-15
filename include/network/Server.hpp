@@ -5,6 +5,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <vector>
+#include <exception>
 
 using std::string;
 using std::vector;
