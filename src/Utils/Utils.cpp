@@ -1,4 +1,5 @@
 #include <Utils.hpp>
+#include <vector>
 
 std::string formatError(const char* format, ...) {
 	char buffer[1024];
@@ -9,4 +10,8 @@ std::string formatError(const char* format, ...) {
 	va_end(args);
 
 	return std::string(buffer);
+}
+
+std::vector<std::string> ft_split(std::string &str, char delimiter) {
+	std::vector<std::string> tokens;
 }

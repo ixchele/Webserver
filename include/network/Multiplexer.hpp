@@ -13,7 +13,7 @@ public:
 
   Multiplexer(const vector<ServerConfig*> &v_configs);
 
-	void run_all_servers();
+	void startup();
 	// void response_loop();
 private:
 };

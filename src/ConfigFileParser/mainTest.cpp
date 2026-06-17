@@ -21,9 +21,9 @@ int	main(int ac, char **av) {
 		v_configs = lexer.parse();
 		std::cout << *v_configs[0];
 	} catch (ConfigParser::ConfigException &e) {
-		std::cout << e.what() << std::endl;
+		std::cerr << e.what() << std::endl;
 	} catch (std::exception &e) {
-		std::cout << e.what() << std::endl;
+		std::cerr << e.what() << std::endl;
 	}
 	try {
 		Multiplexer multiplexer(v_configs);
@@ -33,6 +33,6 @@ int	main(int ac, char **av) {
 		}
 	}
 	catch (std::exception &e) {
-		std::cout << e.what() << std::endl;
+		std::cerr << e.what() << std::endl;
 	}
 }

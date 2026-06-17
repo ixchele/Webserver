@@ -40,9 +40,19 @@ Server::~Server() {
 }
 
 void Server::run() {
-    creat_socket();
-    bind_address();
-    start_listening();
+    if (creat_socket() == -1)
+    {
+        std::string warning = "Waring: Couldn't create";
+        throw std::runtime_error(" is not a valid ip address");
+    }
+    if (bind_address() == -1)
+    {
+        
+    }
+    if (start_listening() == -1)
+    {
+        
+    }
 }
 
 int Server::creat_socket() {

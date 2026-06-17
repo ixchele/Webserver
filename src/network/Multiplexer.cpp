@@ -1,6 +1,6 @@
 #include <Multiplexer.hpp>
 
-void Multiplexer::run_all_servers() {
+void Multiplexer::startup() {
   for (size_t i = 0; i < this->v_servers.size(); i++)
   {
     v_servers[i].run();
