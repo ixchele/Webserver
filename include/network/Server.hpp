@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <vector>
 #include <exception>
+#include <AFd.hpp>
 
 using std::string;
 using std::vector;
@@ -19,16 +20,13 @@ using std::vector;
 
 typedef char methods_t;
 
-class Server
+class Server : public AFd
 {
   public:
     sockaddr_in m_addr;
     const ServerConfig *m_config;
 
     Server(const std::string &ip, const short &port, const ServerConfig *config);
-    Server();
-
-    int get_fd();
 
     Client accept_connection();
     void run();
@@ -36,8 +34,6 @@ class Server
     ~Server();
 
   private:
-    int m_fd;
-
     int creat_socket();
     int bind_address();
     int start_listening();

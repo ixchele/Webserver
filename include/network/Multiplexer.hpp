@@ -9,11 +9,12 @@ using std::vector;
 class Multiplexer
 {
 public:
-	vector <Server> v_servers;
+	vector <AFd *> v_fds;
 
   Multiplexer(const vector<ServerConfig*> &v_configs);
 
 	void startup();
 	// void response_loop();
+	~Multiplexer();
 private:
 };

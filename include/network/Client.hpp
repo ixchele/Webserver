@@ -1,10 +1,11 @@
 #pragma once
+# include <AFd.hpp>
 
-class Client
+class Client : public AFd
 {
   public:
-    Client();
-    Client(const int &fd);
+    virtual void handle_event();
+
     ~Client();
 
   private:

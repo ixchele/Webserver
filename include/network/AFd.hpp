@@ -19,17 +19,17 @@ using std::vector;
 
 typedef char methods_t;
 
-class ASocket
+class AFd
 {
   public:
-    ASocket();
+    AFd(int &fd);
 
-    int get_fd();
+    int get_fd() const;
 
     virtual void handdle_event() = 0;
 
-    ~ASocket();
+    ~AFd();
 
-  private:
+  protected:
     int m_fd;
 };
