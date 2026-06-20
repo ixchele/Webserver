@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <vector>
 #include <exception>
+#include <sys/epoll.h>
 
 using std::string;
 using std::vector;
@@ -22,11 +23,11 @@ typedef char methods_t;
 class AFd
 {
   public:
-    AFd(int &fd);
+    AFd(const int &fd);
 
     int get_fd() const;
 
-    virtual void handdle_event() = 0;
+    virtual void handdle_event(uint32_t event = EPOLLIN) = 0;
 
     ~AFd();
 

@@ -9,7 +9,7 @@ using std::vector;
 class Multiplexer
 {
 public:
-	vector <AFd *> v_fds;
+	vector <Server *> v_servers;
 
   Multiplexer(const vector<ServerConfig*> &v_configs);
 

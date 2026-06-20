@@ -6,18 +6,13 @@
 #include <netdb.h>
 #include <cstring>
 #include <stdexcept>
-
-Server::Server()
-	: m_fd(-1)
-{
-    std::memset(&this->m_addr, 0, sizeof(m_addr));
-}
+#include <string>
+#include <iostream>
 
 Server::Server(const std::string &ip, const short &port, const ServerConfig *config)
-	: m_fd(-1)
+	: AFd(-1), m_currentClient(NULL), m_ip(ip), m_port(port), m_config(config)
 {
     std::memset(&this->m_addr, 0, sizeof(m_addr));
-    m_config = config;
     addrinfo hints, *res;
 
     std::memset(&hints, 0, sizeof(hints));
@@ -40,41 +35,41 @@ Server::~Server() {
 }
 
 void Server::run() {
-    if (creat_socket() == -1)
-    {
-        std::string warning = "Waring: Couldn't create";
-        throw std::runtime_error(" is not a valid ip address");
-    }
-    if (bind_address() == -1)
-    {
-        
-    }
-    if (start_listening() == -1)
-    {
-        
-    }
+    creat_socket();
+    bind_address();
+    start_listening();
 }
 
-int Server::creat_socket() {
+void Server::creat_socket() {
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
-    return this->m_fd;
+        throw("error: socket() for " + m_ip + ":" + std::to_string(m_port) + " failed");
 }
 
-int Server::bind_address() {
-    return bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), 16);
+void Server::bind_address() {
+    if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), 16) != 0)
+        throw("error: bind() failed on " + m_ip + ":" + std::to_string(m_port));
 }
 
-int Server::start_listening() {
-    return listen(this->m_fd, BACKLOG);
+void Server::start_listening() {
+    if (listen(this->m_fd, BACKLOG) != 0)
+        throw("error: listen() failed on " + m_ip + ":" + std::to_string(m_port));
 }
 
-Client Server::accept_connection() {
+// return 0 on success -1 if failed
+void Server::accept_connection() {
     int clientFd;
 
     clientFd = accept(this->m_fd, NULL, NULL);
-    return Client(clientFd);
+    if (clientFd != -1)
+        m_currentClient = new Client(clientFd, this);
 }
 
-int Server::get_fd() {
-    return this->m_fd;
+void Server::handdle_event(uint32_t event = EPOLLIN) {
+    accept_connection();
+    if (m_currentClient == NULL)
+    {
+        std::cerr << "warning: accept() failed on " + m_ip + ":" + std::to_string(m_port) << std::endl;
+        return ;
+    }
+    // add client to epoll
 }

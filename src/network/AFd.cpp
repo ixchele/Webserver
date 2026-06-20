@@ -1,7 +1,7 @@
 #include <AFd.hpp>
 #include <unistd.h>
 
-AFd::AFd(int &fd) : m_fd(fd)
+AFd::AFd(const int &fd) : m_fd(fd)
 {
 }
 

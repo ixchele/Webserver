@@ -10,6 +10,8 @@ Client::~Client() {
   close(m_fd);
 }
 
-void Client::handle_event() {
-  // 
+Client::Client(const int &fd, const Server *server) : AFd(fd), m_server(server) {}
+
+void Client::handdle_event(uint32_t event = EPOLLIN) {
+  // to do
 }

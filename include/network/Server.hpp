@@ -25,16 +25,23 @@ class Server : public AFd
   public:
     sockaddr_in m_addr;
     const ServerConfig *m_config;
+    Client *m_currentClient;
 
     Server(const std::string &ip, const short &port, const ServerConfig *config);
 
-    Client accept_connection();
-    void run();
+    virtual void handdle_event(uint32_t event = EPOLLIN);
 
-    ~Server();
+    void run();
+    void end_connection();
+
+    virtual ~Server();
 
   private:
-    int creat_socket();
-    int bind_address();
-    int start_listening();
+    const std::string m_ip;
+    const int         m_port; 
+
+    void creat_socket();
+    void bind_address();
+    void start_listening();
+    void accept_connection();
 };

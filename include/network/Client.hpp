@@ -1,10 +1,15 @@
 #pragma once
 # include <AFd.hpp>
+# include <Server.hpp>
 
 class Client : public AFd
 {
   public:
-    virtual void handle_event();
+    const Server *m_server;
+
+    Client(const int &fd, const Server *server);
+
+    virtual void handdle_event(uint32_t event = EPOLLIN);
 
     ~Client();
 
