@@ -8,9 +8,10 @@
 #include <stdexcept>
 #include <string>
 #include <iostream>
+#include <sstream>
 
 Server::Server(const std::string &ip, const short &port, const ServerConfig *config)
-	: AFd(-1), m_currentClient(NULL), m_ip(ip), m_port(port), m_config(config)
+	: AFd(-1), m_config(config), m_currentClient(NULL), m_ip(ip), m_port(port)
 {
     std::memset(&this->m_addr, 0, sizeof(m_addr));
     addrinfo hints, *res;
@@ -27,6 +28,7 @@ Server::Server(const std::string &ip, const short &port, const ServerConfig *con
         this->m_addr = *((sockaddr_in *)res->ai_addr);
     }
     m_addr.sin_port = htons(port);
+    run();
 }
 
 Server::~Server() {
@@ -42,34 +44,58 @@ void Server::run() {
 
 void Server::creat_socket() {
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
-        throw("error: socket() for " + m_ip + ":" + std::to_string(m_port) + " failed");
+	if (this->m_fd == -1)
+	{
+		std::stringstream ss;
+		ss << m_port;
+		throw std::runtime_error("error: socket() for " + m_ip + ":" + ss.str() + " failed");
+	}
 }
 
 void Server::bind_address() {
     if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), 16) != 0)
-        throw("error: bind() failed on " + m_ip + ":" + std::to_string(m_port));
+	{
+        std::stringstream ss;
+        ss << m_port;
+        throw std::runtime_error("error: bind() failed on " + m_ip + ":" + ss.str());
+	}
 }
 
 void Server::start_listening() {
     if (listen(this->m_fd, BACKLOG) != 0)
-        throw("error: listen() failed on " + m_ip + ":" + std::to_string(m_port));
+	{
+        std::stringstream ss;
+        ss << m_port;
+        throw std::runtime_error("error: listen() for " + m_ip + ":" + ss.str() + " failed");
+    }
 }
 
 // return 0 on success -1 if failed
 void Server::accept_connection() {
     int clientFd;
 
-    clientFd = accept(this->m_fd, NULL, NULL);
+    clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
     if (clientFd != -1)
         m_currentClient = new Client(clientFd, this);
 }
 
-void Server::handdle_event(uint32_t event = EPOLLIN) {
+void Server::end_connection() {
+    if (this->m_currentClient)
+    {
+        delete m_currentClient;
+        m_currentClient = NULL;
+    }
+}
+
+void Server::handdle_event(uint32_t event) {
     accept_connection();
     if (m_currentClient == NULL)
     {
-        std::cerr << "warning: accept() failed on " + m_ip + ":" + std::to_string(m_port) << std::endl;
+        std::cerr << "warning: accept() failed on " << m_ip << ":" << m_port << std::endl;
         return ;
     }
     // add client to epoll
+    write(m_currentClient->get_fd(), "Accepted\n", 9);
+    (void)event;
+    
 }

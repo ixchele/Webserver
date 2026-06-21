@@ -20,6 +20,8 @@ using std::vector;
 
 typedef char methods_t;
 
+class Client;
+
 class Server : public AFd
 {
   public:
@@ -29,7 +31,7 @@ class Server : public AFd
 
     Server(const std::string &ip, const short &port, const ServerConfig *config);
 
-    virtual void handdle_event(uint32_t event = EPOLLIN);
+    virtual void handdle_event(uint32_t event);
 
     void run();
     void end_connection();

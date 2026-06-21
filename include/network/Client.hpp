@@ -2,6 +2,8 @@
 # include <AFd.hpp>
 # include <Server.hpp>
 
+class Server;
+
 class Client : public AFd
 {
   public:
@@ -9,9 +11,9 @@ class Client : public AFd
 
     Client(const int &fd, const Server *server);
 
-    virtual void handdle_event(uint32_t event = EPOLLIN);
+    virtual void handdle_event(uint32_t event);
 
-    ~Client();
+    virtual ~Client();
 
   private:
     int m_fd;

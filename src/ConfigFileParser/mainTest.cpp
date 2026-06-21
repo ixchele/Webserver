@@ -29,7 +29,7 @@ int	main(int ac, char **av) {
 		Multiplexer multiplexer(v_configs);
 		for (size_t i = 0; i < multiplexer.v_servers.size(); i++)
 		{
-			std::cout << "listen " << multiplexer.v_servers[i].m_addr.sin_addr.s_addr << ":" << multiplexer.v_servers[i].m_addr.sin_port << std::endl;
+			std::cout << "listen " << multiplexer.v_servers[i]->m_addr.sin_addr.s_addr << ":" << multiplexer.v_servers[i]->m_addr.sin_port << std::endl;
 		}
 	}
 	catch (std::exception &e) {

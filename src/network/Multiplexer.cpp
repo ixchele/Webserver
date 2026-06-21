@@ -1,10 +1,16 @@
 #include <Multiplexer.hpp>
+#include <Epoll.hpp>
+#include <sys/epoll.h>
+#include <iostream>
+
 
 void Multiplexer::startup() {
-  for (size_t i = 0; i < this->v_servers.size(); i++)
+	Epoll epoll;
+	for (size_t i = 0; i < this->v_servers.size(); i++)
   {
-    v_servers[i]->run();
-  }
+    	epoll.add_fd(v_servers[i]->get_fd(), v_servers[i], EPOLLIN);
+		  std::cout << "added " << v_servers[i]->get_fd() << std::endl;
+	}
 }
 
 Multiplexer::Multiplexer(const vector<ServerConfig*> &v_configs) {
@@ -18,4 +24,12 @@ Multiplexer::Multiplexer(const vector<ServerConfig*> &v_configs) {
         }
       }
     }
+}
+
+Multiplexer::~Multiplexer() {
+  for (size_t i = 0; i < this->v_servers.size(); i++)
+  {
+    if (v_servers[i])
+    	delete v_servers[i];
+	}
 }

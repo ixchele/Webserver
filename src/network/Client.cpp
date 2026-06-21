@@ -1,6 +1,7 @@
 #include <Client.hpp>
 #include <iostream>
 #include <unistd.h>
+#include <Server.hpp>
 
 Client::~Client() {
   /*
@@ -12,6 +13,7 @@ Client::~Client() {
 
 Client::Client(const int &fd, const Server *server) : AFd(fd), m_server(server) {}
 
-void Client::handdle_event(uint32_t event = EPOLLIN) {
+void Client::handdle_event(uint32_t event) {
   // to do
+  (void)event;
 }
