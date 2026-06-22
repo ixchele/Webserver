@@ -17,7 +17,7 @@ Epoll::~Epoll() {
 	close(m_fd);
 }
 
-int Epoll::add_fd(const int &fd, AFd *ptr, int events) {
+int Epoll::add_fd(int fd, AFd *ptr, int events) {
 	epoll_event ev;
 
 	ev.data.ptr = ptr;
@@ -25,7 +25,14 @@ int Epoll::add_fd(const int &fd, AFd *ptr, int events) {
 	return epoll_ctl(m_fd, EPOLL_CTL_ADD, fd, &ev);
 }
 
-void Epoll::del_fd(const int &fd) {
+void Epoll::del_fd(int fd) {
 	if (epoll_ctl(m_fd, EPOLL_CTL_DEL, fd, NULL) == -1)
 		std::cerr << "warning: epoll_ctl() failed to delete fd " << fd << std::endl;
+}
+
+int	Epoll::wait(epoll_event *events, int maxevents) {
+	int readyFds = epoll_wait(m_fd, events, maxevents, 1000);
+	if (readyFds == -1)
+		std::cerr << "warning: epoll_wait() failed" << std::endl;
+	return readyFds;
 }

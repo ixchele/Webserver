@@ -7,6 +7,7 @@
 #include <vector>
 #include <exception>
 #include <AFd.hpp>
+#include <map>
 
 using std::string;
 using std::vector;
@@ -26,15 +27,15 @@ class Server : public AFd
 {
   public:
     sockaddr_in m_addr;
-    const ServerConfig *m_config;
-    Client *m_currentClient;
+    vector <const ServerConfig *> m_configs;
+    std::map <int, Client *> m_clients;
 
     Server(const std::string &ip, const short &port, const ServerConfig *config);
 
     virtual void handdle_event(uint32_t event);
 
     void run();
-    void end_connection();
+    void end_connection(int fd);
 
     virtual ~Server();
 
@@ -45,5 +46,5 @@ class Server : public AFd
     void creat_socket();
     void bind_address();
     void start_listening();
-    void accept_connection();
+    int accept_connection();
 };

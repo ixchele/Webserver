@@ -5,12 +5,19 @@
 
 
 void Multiplexer::startup() {
-	Epoll epoll;
 	for (size_t i = 0; i < this->v_servers.size(); i++)
   {
-    	epoll.add_fd(v_servers[i]->get_fd(), v_servers[i], EPOLLIN);
-		  std::cout << "added " << v_servers[i]->get_fd() << std::endl;
+    m_epoll.add_fd(v_servers[i]->get_fd(), v_servers[i], EPOLLIN);
+		std::cout << "added " << v_servers[i]->get_fd() << std::endl;
 	}
+  events_loop();
+}
+
+void Multiplexer::events_loop() {
+  while (true)
+  {
+    m_epoll.wait();
+  }
 }
 
 Multiplexer::Multiplexer(const vector<ServerConfig*> &v_configs) {

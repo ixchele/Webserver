@@ -62,7 +62,7 @@ void Server::bind_address() {
 }
 
 void Server::start_listening() {
-    if (listen(this->m_fd, BACKLOG) != 0)
+    if (listen(this->m_fd, SOMAXCONN) != 0)
 	{
         std::stringstream ss;
         ss << m_port;
@@ -71,31 +71,31 @@ void Server::start_listening() {
 }
 
 // return 0 on success -1 if failed
-void Server::accept_connection() {
+int Server::accept_connection() {
     int clientFd;
 
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
     if (clientFd != -1)
-        m_currentClient = new Client(clientFd, this);
+        m_clients[clientFd] = new Client(clientFd, this);
+    return clientFd
 }
 
-void Server::end_connection() {
-    if (this->m_currentClient)
+void Server::end_connection(int fd) {
+    if (m_clients.find(fd) != m_clients.end() && m_clients[fd] != NULL)
     {
-        delete m_currentClient;
-        m_currentClient = NULL;
+        delete m_clients[fd];
+        m_clients.erase(fd);
     }
 }
 
 void Server::handdle_event(uint32_t event) {
-    accept_connection();
-    if (m_currentClient == NULL)
+    int clientFd = accept_connection();
+    if (clientFd == -1)
     {
         std::cerr << "warning: accept() failed on " << m_ip << ":" << m_port << std::endl;
         return ;
     }
     // add client to epoll
-    write(m_currentClient->get_fd(), "Accepted\n", 9);
+    write(clientFd, "Accepted\n", 9);
     (void)event;
-    
 }

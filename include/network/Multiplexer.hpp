@@ -2,6 +2,7 @@
 #include <Server.hpp>
 #include <vector>
 #include <ServerConfig.hpp>
+#include <Epoll.hpp>
 
 using std::vector;
 
@@ -11,10 +12,11 @@ class Multiplexer
 public:
 	vector <Server *> v_servers;
 
-  Multiplexer(const vector<ServerConfig*> &v_configs);
+  	Multiplexer(const vector<ServerConfig*> &v_configs);
 
 	void startup();
-	// void response_loop();
+	void events_loop();
 	~Multiplexer();
 private:
+	Epoll m_epoll;
 };

@@ -8,8 +8,9 @@ public:
     Epoll();
     ~Epoll();
 
-	int add_fd(const int &fd, AFd *ptr, int events);
-	void del_fd(const int &fd);
+	int add_fd(int fd, AFd *ptr, int events);
+	void del_fd(int fd);
+    int wait(epoll_event *events, int maxevents);
 
 private:
     int m_fd;

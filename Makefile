@@ -14,7 +14,7 @@ INCLUDES := $(addprefix -I, $(INC_DIRS))
 CPPFLAGS = -Wall -Wextra -Werror -std=c++98 $(INCLUDES)
 LFLAGS =  $(CPPFLAGS)
 SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
-	  ./src/ConfigFileParser/mainTest.cpp \
+	  ./main.cpp \
 	  ./src/ConfigFileParser/ConfigStructures/CommonConfig.cpp \
 	  ./src/ConfigFileParser/ConfigStructures/LocationConfig.cpp \
 	  ./src/ConfigFileParser/ConfigStructures/ServerConfig.cpp \
