@@ -9,6 +9,7 @@
 #include <vector>
 #include <Server.hpp>
 #include <Multiplexer.hpp>
+#include <netinet/in.h>
 
 
 int	main(int ac, char **av) {
@@ -19,7 +20,7 @@ int	main(int ac, char **av) {
 	std::vector<ServerConfig*> v_configs;
 	try {
 		v_configs = lexer.parse();
-		std::cout << *v_configs[0];
+		// std::cout << *v_configs[0];
 	} catch (ConfigParser::ConfigException &e) {
 		std::cerr << e.what() << std::endl;
 	} catch (std::exception &e) {
@@ -29,7 +30,8 @@ int	main(int ac, char **av) {
 		Multiplexer multiplexer(v_configs);
 		for (size_t i = 0; i < multiplexer.v_servers.size(); i++)
 		{
-			std::cout << "listen " << multiplexer.v_servers[i]->m_addr.sin_addr.s_addr << ":" << multiplexer.v_servers[i]->m_addr.sin_port << std::endl;
+			std::cout << "listen " << multiplexer.v_servers[i]->m_ip <<
+			 ":" << multiplexer.v_servers[i]->m_port << std::endl;
 		}
         multiplexer.startup();
 	}

@@ -11,8 +11,9 @@
 #include <sstream>
 
 Server::Server(const std::string &ip, const short &port, const ServerConfig *config)
-	: AFd(-1), m_config(config), m_currentClient(NULL), m_ip(ip), m_port(port)
+	: AFd(-1), m_ip(ip), m_port(port)
 {
+    m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
     addrinfo hints, *res;
 
@@ -34,6 +35,25 @@ Server::Server(const std::string &ip, const short &port, const ServerConfig *con
 Server::~Server() {
     if (this->m_fd != -1)
         close(this->m_fd);
+}
+
+void Server::add_config(const ServerConfig *config) {
+    m_configs.push_back(config);
+}
+
+const ServerConfig *Server::get_config(const string &host) {
+    for (size_t i = 0; i < m_configs.size(); i++)
+    {
+        for (size_t n = 0; n < m_configs[i]->names.size(); i++)
+        {
+            if (m_configs[i]->names[n] == host)
+            {
+                return m_configs[i];
+            }
+        }
+    }
+    throw std::runtime_error("Host name \"" + host + "\" is not found");
+    return m_configs[0];
 }
 
 void Server::run() {
@@ -77,7 +97,7 @@ int Server::accept_connection() {
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
     if (clientFd != -1)
         m_clients[clientFd] = new Client(clientFd, this);
-    return clientFd
+    return clientFd;
 }
 
 void Server::end_connection(int fd) {

@@ -2,6 +2,8 @@
 # include <sys/epoll.h>
 # include <AFd.hpp>
 
+# define MAXEVENTS 64
+
 class Epoll
 {
 public:
@@ -10,7 +12,7 @@ public:
 
 	int add_fd(int fd, AFd *ptr, int events);
 	void del_fd(int fd);
-    int wait(epoll_event *events, int maxevents);
+    int wait(epoll_event *events);
 
 private:
     int m_fd;

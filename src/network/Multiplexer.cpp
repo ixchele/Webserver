@@ -14,9 +14,18 @@ void Multiplexer::startup() {
 }
 
 void Multiplexer::events_loop() {
+  int readyFds;
+  AFd *fdObj;
+
   while (true)
   {
-    m_epoll.wait();
+    epoll_event events[MAXEVENTS];
+    readyFds = m_epoll.wait(events);
+    for (int i = 0; i < readyFds; i++)
+    {
+      fdObj = static_cast<AFd *>(events[i].data.ptr);
+      fdObj->handdle_event(events[i].events);
+    }
   }
 }
 

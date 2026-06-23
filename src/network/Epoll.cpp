@@ -30,8 +30,8 @@ void Epoll::del_fd(int fd) {
 		std::cerr << "warning: epoll_ctl() failed to delete fd " << fd << std::endl;
 }
 
-int	Epoll::wait(epoll_event *events, int maxevents) {
-	int readyFds = epoll_wait(m_fd, events, maxevents, 1000);
+int	Epoll::wait(epoll_event *events) {
+	int readyFds = epoll_wait(m_fd, events, MAXEVENTS, 1000);
 	if (readyFds == -1)
 		std::cerr << "warning: epoll_wait() failed" << std::endl;
 	return readyFds;

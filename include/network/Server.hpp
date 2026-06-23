@@ -25,26 +25,28 @@ class Client;
 
 class Server : public AFd
 {
-  public:
-    sockaddr_in m_addr;
-    vector <const ServerConfig *> m_configs;
-    std::map <int, Client *> m_clients;
+public:
+  sockaddr_in m_addr;
+  std::map<int, Client *> m_clients;
+  const std::string m_ip;
+  const int m_port;
 
-    Server(const std::string &ip, const short &port, const ServerConfig *config);
+  Server(const std::string &ip, const short &port, const ServerConfig *config);
 
-    virtual void handdle_event(uint32_t event);
+  virtual void handdle_event(uint32_t event);
 
-    void run();
-    void end_connection(int fd);
+  void run();
+  void end_connection(int fd);
+  void add_config(const ServerConfig *config);
+  const ServerConfig *get_config(const string &host);
 
-    virtual ~Server();
+  virtual ~Server();
 
-  private:
-    const std::string m_ip;
-    const int         m_port; 
+private:
+  vector<const ServerConfig *> m_configs;
 
-    void creat_socket();
-    void bind_address();
-    void start_listening();
-    int accept_connection();
+  void creat_socket();
+  void bind_address();
+  void start_listening();
+  int accept_connection();
 };

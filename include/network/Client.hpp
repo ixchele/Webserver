@@ -7,9 +7,9 @@ class Server;
 class Client : public AFd
 {
   public:
-    const Server *m_server;
+    Server *m_server;
 
-    Client(const int &fd, const Server *server);
+    Client(const int &fd, Server *server);
 
     virtual void handdle_event(uint32_t event);
 
