@@ -18,5 +18,5 @@ public:
 	void events_loop();
 	~Multiplexer();
 private:
-	Epoll m_epoll;
+	Epoll *m_epoll;
 };

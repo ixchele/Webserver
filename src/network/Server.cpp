@@ -10,8 +10,8 @@
 #include <iostream>
 #include <sstream>
 
-Server::Server(const std::string &ip, const short &port, const ServerConfig *config)
-	: AFd(-1), m_ip(ip), m_port(port)
+Server::Server(const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
+	: AFd(-1), m_ip(ip), m_port(port), m_epoll(epoll)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -96,7 +96,7 @@ int Server::accept_connection() {
 
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
     if (clientFd != -1)
-        m_clients[clientFd] = new Client(clientFd, this);
+        m_clients[clientFd] = new Client(clientFd, this, this->m_epoll);
     return clientFd;
 }
 
@@ -109,13 +109,17 @@ void Server::end_connection(int fd) {
 }
 
 void Server::handdle_event(uint32_t event) {
+    (void)event;
     int clientFd = accept_connection();
     if (clientFd == -1)
     {
         std::cerr << "warning: accept() failed on " << m_ip << ":" << m_port << std::endl;
         return ;
     }
-    // add client to epoll
-    write(clientFd, "Accepted\n", 9);
-    (void)event;
+    std::cout << "Accepted " << clientFd << std::endl;
+    if (m_epoll->add_fd(clientFd, static_cast<AFd *>(m_clients[clientFd]), EPOLLIN) != 0)
+    {
+        std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << std::endl;
+        end_connection(clientFd);
+    }
 }

@@ -1,12 +1,13 @@
 #pragma once
-#include <Client.hpp>
 #include <ServerConfig.hpp>
-#include <netinet/in.h>
-#include <string>
-#include <sys/socket.h>
-#include <vector>
-#include <exception>
+#include <Client.hpp>
+#include <Epoll.hpp>
 #include <AFd.hpp>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <exception>
+#include <string>
+#include <vector>
 #include <map>
 
 using std::string;
@@ -30,8 +31,9 @@ public:
   std::map<int, Client *> m_clients;
   const std::string m_ip;
   const int m_port;
+  Epoll *m_epoll;
 
-  Server(const std::string &ip, const short &port, const ServerConfig *config);
+  Server(const std::string &ip, short port, const ServerConfig *config, Epoll *epoll);
 
   virtual void handdle_event(uint32_t event);
 

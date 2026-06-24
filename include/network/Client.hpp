@@ -1,20 +1,22 @@
 #pragma once
-# include <AFd.hpp>
-# include <Server.hpp>
+#include <AFd.hpp>
+#include <Server.hpp>
+#include <Epoll.hpp>
 
 class Server;
 
 class Client : public AFd
 {
-  public:
-    Server *m_server;
+public:
+  Server *m_server;
+  Epoll *m_epoll;
 
-    Client(const int &fd, Server *server);
+  Client(int fd, Server *server, Epoll *epoll);
 
-    virtual void handdle_event(uint32_t event);
+  virtual void handdle_event(uint32_t event);
 
-    virtual ~Client();
+  virtual ~Client();
 
-  private:
-    int m_fd;
+private:
+  int m_fd;
 };
