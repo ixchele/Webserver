@@ -1,8 +1,9 @@
 #pragma once
-#include <Server.hpp>
-#include <vector>
 #include <ServerConfig.hpp>
+#include <Server.hpp>
 #include <Epoll.hpp>
+#include <vector>
+#include <map>
 
 using std::vector;
 
@@ -10,7 +11,7 @@ using std::vector;
 class Multiplexer
 {
 public:
-	vector <Server *> v_servers;
+	std::map <std::string, Server *> m_servers;
 
   	Multiplexer(const vector<ServerConfig*> &v_configs);
 

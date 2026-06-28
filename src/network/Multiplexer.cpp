@@ -2,13 +2,15 @@
 #include <Epoll.hpp>
 #include <sys/epoll.h>
 #include <iostream>
+#include <map>
 
 void Multiplexer::startup()
 {
-  for (size_t i = 0; i < this->v_servers.size(); i++)
+  std::map<std::string, Server *>::iterator it;
+  for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
   {
-    m_epoll->add_fd(v_servers[i]->get_fd(), v_servers[i], EPOLLIN);
-    std::cout << "added " << v_servers[i]->get_fd() << std::endl;
+    m_epoll->add_fd(it->second->get_fd(), it->second, EPOLLIN);
+    std::cout << "added " << it->second->get_fd() << std::endl;
   }
   events_loop();
 }
@@ -25,6 +27,7 @@ void Multiplexer::events_loop()
     for (int i = 0; i < readyFds; i++)
     {
       fdObj = static_cast<AFd *>(events[i].data.ptr);
+      std::cerr << "event came on " << fdObj->get_fd() << std::endl;
       fdObj->handdle_event(events[i].events);
     }
   }
@@ -32,6 +35,7 @@ void Multiplexer::events_loop()
 
 Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
 {
+  std::string key;
   m_epoll = new Epoll;
   for (size_t confs = 0; confs < v_configs.size(); confs++)
   {
@@ -39,7 +43,11 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
     {
       for (size_t ports = 0; ports < v_configs[confs]->listen.size(); ports++)
       {
-        this->v_servers.push_back(new Server(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports], v_configs[confs], m_epoll));
+        key = Server::craft_key(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports]);
+        if (m_servers.find(key) == m_servers.end())
+          this->m_servers[key] = new Server(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports], v_configs[confs], m_epoll);
+        else
+          this->m_servers[key]->m_configs.push_back(v_configs[confs]);
       }
     }
   }
@@ -47,10 +55,11 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
 
 Multiplexer::~Multiplexer()
 {
-  for (size_t i = 0; i < this->v_servers.size(); i++)
+  std::map<std::string, Server *>::iterator it;
+  for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
   {
-    if (v_servers[i])
-      delete v_servers[i];
+    if (it->second)
+      delete it->second;
   }
   if (m_epoll)
     delete m_epoll;

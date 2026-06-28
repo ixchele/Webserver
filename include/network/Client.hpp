@@ -16,7 +16,4 @@ public:
   virtual void handdle_event(uint32_t event);
 
   virtual ~Client();
-
-private:
-  int m_fd;
 };

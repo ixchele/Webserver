@@ -10,7 +10,7 @@
 class AFd
 {
   public:
-    AFd(const int &fd);
+    AFd(int fd);
 
     int get_fd() const;
 
