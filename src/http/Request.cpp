@@ -20,3 +20,19 @@ int Request::receive_data(int ClientFd) {
     m_sbuffer += m_buffer;
     return bytes;
 }
+
+Request::Line::Line() : method(0) {}
+
+void Request::Line::clear() {
+    this->method = 0;
+    this->uri.clear();
+    this->version.clear();
+}
+
+void Request::clear() {
+    this->m_bodies.clear();
+    this->m_chunks.clear();
+    this->m_headers.clear();
+    this->m_sbuffer.clear();
+    this->m_requestLine.clear();
+}

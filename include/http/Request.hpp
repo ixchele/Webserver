@@ -16,6 +16,10 @@ public:
         int method;
         std::string uri;
         std::string version;
+
+        Line();
+
+        void clear();
     };
 
     char m_buffer[APP_BUFFER_SIZE];
@@ -30,6 +34,7 @@ public:
     ~Request();
 
     int receive_data(int clientFd);
+    void clear();
 
 private:
     /* data */
