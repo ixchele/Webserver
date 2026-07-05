@@ -25,6 +25,14 @@ int Epoll::add_fd(int fd, AFd *ptr, int events) {
 	return epoll_ctl(m_fd, EPOLL_CTL_ADD, fd, &ev);
 }
 
+int Epoll::edit_fd(int fd, AFd *ptr, int events) {
+	epoll_event ev;
+
+	ev.data.ptr = ptr;
+	ev.events = events;
+	return epoll_ctl(m_fd, EPOLL_CTL_MOD, fd, &ev);
+}
+
 void Epoll::del_fd(int fd) {
 	if (epoll_ctl(m_fd, EPOLL_CTL_DEL, fd, NULL) == -1)
 		std::cerr << "warning: epoll_ctl() failed to delete fd " << fd << std::endl;

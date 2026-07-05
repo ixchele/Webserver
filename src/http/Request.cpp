@@ -10,8 +10,8 @@ Request::~Request()
 {
 }
 
-int Request::receive_data(int ClientFd) {
-    int bytes = read(ClientFd, m_buffer, APP_BUFFER_SIZE - 1);
+int Request::receive_data() {
+    int bytes = read(m_client->get_fd(), m_buffer, APP_BUFFER_SIZE - 1);
     if (bytes == -1)
         throw std::runtime_error("warning: read() failed");
     else if (bytes == 0)

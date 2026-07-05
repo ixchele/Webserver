@@ -33,7 +33,7 @@ public:
     Request(Client *client);
     ~Request();
 
-    int receive_data(int clientFd);
+    int receive_data();
     void clear();
 
 private:

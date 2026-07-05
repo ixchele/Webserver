@@ -11,6 +11,7 @@ public:
     ~Epoll();
 
 	int add_fd(int fd, AFd *ptr, int events);
+	int edit_fd(int fd, AFd *ptr, int events);
 	void del_fd(int fd);
     int wait(epoll_event *events);
 
