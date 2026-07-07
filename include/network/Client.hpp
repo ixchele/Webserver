@@ -12,7 +12,7 @@ class Client : public AFd
 public:
   Server *m_server;
   Epoll *m_epoll;
-  Request m_requst;
+  Request *m_requst;
 
   Client(int fd, Server *server, Epoll *epoll);
 
