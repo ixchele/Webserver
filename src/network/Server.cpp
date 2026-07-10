@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <cstring>
@@ -28,10 +29,12 @@ Server::Server(const std::string &key, const std::string &ip, short port, const 
     else
     {
         std::stringstream ss;
+        char buffer[16];
+        std::string ip;
 
         this->m_addr = *((sockaddr_in *)res->ai_addr);
 	    ss << port;
-        
+        ip = inet_ntop(AF_INET, &this->m_addr.sin_addr, buffer, INET_ADDRSTRLEN);
     }
     m_addr.sin_port = htons(port);
     run();
