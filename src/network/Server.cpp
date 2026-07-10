@@ -12,8 +12,8 @@
 #include <sstream>
 #include <cstdlib>
 
-Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
-	: AFd(-1), m_key(key), m_ip(ip), m_port(port), m_epoll(epoll)
+Server::Server(const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
+	: AFd(-1), m_ip(ip), m_port(port), m_epoll(epoll)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -30,11 +30,14 @@ Server::Server(const std::string &key, const std::string &ip, short port, const 
     {
         std::stringstream ss;
         char buffer[16];
-        std::string ip;
 
         this->m_addr = *((sockaddr_in *)res->ai_addr);
 	    ss << port;
-        ip = inet_ntop(AF_INET, &this->m_addr.sin_addr, buffer, INET_ADDRSTRLEN);
+        if (inet_ntop(AF_INET, &this->m_addr.sin_addr, buffer, INET_ADDRSTRLEN) == NULL)
+            throw std::runtime_error("error: inet_ntop() failed on " + ip);
+        m_key = &buffer[0];
+        m_key += ':';
+        m_key += ss.str();
     }
     m_addr.sin_port = htons(port);
     run();
@@ -142,7 +145,29 @@ void Server::handdle_event(uint32_t event) {
 }
 
 string Server::craft_key(const string &ip, int port) {
-    std::stringstream ss;
-	ss << port;
-    return ip + ss.str();
+    std::string key;
+    addrinfo hints, *res;
+
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    if (getaddrinfo(ip.c_str(), NULL, &hints, &res) != 0)
+    {
+        throw std::runtime_error(ip + " is not a valid ip address");
+    }
+    else
+    {
+        std::stringstream ss;
+        sockaddr_in addr;
+        char buffer[16];
+
+        addr = *((sockaddr_in *)res->ai_addr);
+	    ss << port;
+        if (inet_ntop(AF_INET, &addr.sin_addr, buffer, INET_ADDRSTRLEN) == NULL)
+            throw std::runtime_error("error: inet_ntop() failed on " + ip);
+        key = &buffer[0];
+        key += ':';
+        key += ss.str();
+    }
+    return key;
 }
