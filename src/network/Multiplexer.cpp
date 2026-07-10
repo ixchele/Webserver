@@ -44,6 +44,7 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
       for (size_t ports = 0; ports < v_configs[confs]->listen.size(); ports++)
       {
         key = Server::craft_key(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports]);
+        std::cout << "key: " << key << std::endl;
         if (m_servers.find(key) == m_servers.end())
           this->m_servers[key] = new Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports], v_configs[confs], m_epoll);
         else
