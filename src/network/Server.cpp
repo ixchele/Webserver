@@ -12,8 +12,8 @@
 #include <sstream>
 #include <cstdlib>
 
-Server::Server(const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
-	: AFd(-1), m_ip(ip), m_port(port), m_epoll(epoll)
+Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
+	: AFd(-1), m_key(key), m_ip(ip), m_port(port), m_epoll(epoll)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -28,16 +28,7 @@ Server::Server(const std::string &ip, short port, const ServerConfig *config, Ep
     }
     else
     {
-        std::stringstream ss;
-        char buffer[16];
-
         this->m_addr = *((sockaddr_in *)res->ai_addr);
-	    ss << port;
-        if (inet_ntop(AF_INET, &this->m_addr.sin_addr, buffer, INET_ADDRSTRLEN) == NULL)
-            throw std::runtime_error("error: inet_ntop() failed on " + ip);
-        m_key = &buffer[0];
-        m_key += ':';
-        m_key += ss.str();
     }
     m_addr.sin_port = htons(port);
     run();
@@ -164,7 +155,7 @@ string Server::craft_key(const string &ip, int port) {
         addr = *((sockaddr_in *)res->ai_addr);
 	    ss << port;
         if (inet_ntop(AF_INET, &addr.sin_addr, buffer, INET_ADDRSTRLEN) == NULL)
-            throw std::runtime_error("error: inet_ntop() failed on " + ip);
+            throw std::runtime_error("error: inet_ntop() failed for " + ip);
         key = &buffer[0];
         key += ':';
         key += ss.str();
