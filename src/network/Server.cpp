@@ -11,8 +11,8 @@
 #include <sstream>
 #include <cstdlib>
 
-Server::Server(const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
-	: AFd(-1), m_ip(ip), m_port(port), m_epoll(epoll)
+Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
+	: AFd(-1), m_key(key), m_ip(ip), m_port(port), m_epoll(epoll)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -27,7 +27,11 @@ Server::Server(const std::string &ip, short port, const ServerConfig *config, Ep
     }
     else
     {
+        std::stringstream ss;
+
         this->m_addr = *((sockaddr_in *)res->ai_addr);
+	    ss << port;
+        
     }
     m_addr.sin_port = htons(port);
     run();
