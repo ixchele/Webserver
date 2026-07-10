@@ -23,7 +23,7 @@ void Client::handdle_event(uint32_t event)
   if (event == EPOLLIN)
   {
     if (this->m_requst->receive_data() == 0)
-    this->m_epoll->edit_fd(m_fd, this, EPOLLOUT);
+      this->m_epoll->edit_fd(m_fd, this, EPOLLOUT);
   }
   else if (event == EPOLLOUT)
   {
