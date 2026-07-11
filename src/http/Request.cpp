@@ -3,7 +3,8 @@
 #include <stdexcept>
 #include <iostream>
 
-Request::Request(Client *client) : m_client(client)
+Request::Request(Client *client)
+    : m_step(Step::ERequestLine), m_client(client)
 {
 }
 
@@ -21,6 +22,33 @@ int Request::receive_data() {
     m_buffer[APP_BUFFER_SIZE - 1] = '\0';
     m_sbuffer += m_buffer;
     return bytes;
+}
+
+void Request::extruction() {
+    if (m_step == Step::ERequestLine)
+    {
+        extruct_request_line();
+    }
+    if (m_step == Step::EHeaders)
+    {
+        extruct_headers();
+    }
+    if (m_step == Step::EBody)
+    {
+        extruct_bodies();
+    }
+}
+
+void Request::extruct_request_line() {
+    
+}
+
+void Request::extruct_headers() {
+
+}
+
+void Request::extruct_bodies() {
+
 }
 
 Request::Line::Line() : method(0) {}

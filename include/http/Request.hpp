@@ -11,6 +11,8 @@ class Client;
 class Request
 {
 public:
+    enum Step {ERequestLine, EHeaders, EBody};
+
     struct Line
     {
         int method;
@@ -22,6 +24,7 @@ public:
         void clear();
     };
 
+    Step m_step;
     char m_buffer[APP_BUFFER_SIZE];
     Client *m_client;
     Line m_requestLine;
@@ -34,6 +37,10 @@ public:
     ~Request();
 
     int receive_data();
+    void extruction();
+    void extruct_request_line();
+    void extruct_headers();
+    void extruct_bodies();
     void clear();
 
 private:
