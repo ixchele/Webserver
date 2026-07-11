@@ -68,9 +68,7 @@ void Server::creat_socket() {
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (this->m_fd == -1)
 	{
-		std::stringstream ss;
-		ss << m_port;
-		throw std::runtime_error("error: socket() for " + m_ip + ":" + ss.str() + " failed");
+		throw std::runtime_error("error: socket() for " + m_key + " failed");
 	}
 }
 
@@ -78,24 +76,18 @@ void Server::bind_address() {
     int opt = 1;
     if (setsockopt(this->m_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0)
 	{
-        std::stringstream ss;
-        ss << m_port;
-        throw std::runtime_error("error: setsockopt() failed on " + m_ip + ":" + ss.str());
+        throw std::runtime_error("error: setsockopt() failed on " + m_key);
 	}
     if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), 16) != 0)
 	{
-        std::stringstream ss;
-        ss << m_port;
-        throw std::runtime_error("error: bind() failed on " + m_ip + ":" + ss.str());
+        throw std::runtime_error("error: bind() failed on " + m_key);
 	}
 }
 
 void Server::start_listening() {
     if (listen(this->m_fd, SOMAXCONN) != 0)
 	{
-        std::stringstream ss;
-        ss << m_port;
-        throw std::runtime_error("error: listen() for " + m_ip + ":" + ss.str() + " failed");
+        throw std::runtime_error("error: listen() for " + m_key + " failed");
     }
 }
 
@@ -123,14 +115,14 @@ void Server::handdle_event(uint32_t event) {
     int clientFd = accept_connection();
     if (clientFd == -1)
     {
-        std::cerr << "warning: accept4() failed on " << m_ip << ":" << m_port << std::endl;
+        std::cerr << "warning: accept4() failed on " << m_key << std::endl;
         return ;
     }
     m_clients[clientFd] = new Client(clientFd, this, m_epoll);
     std::cout << "Accepted " << m_clients[clientFd]->get_fd() << std::endl;
     if (m_epoll->add_fd(clientFd, static_cast<AFd *>(m_clients[clientFd]), EPOLLIN) != 0)
     {
-        std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << std::endl;
+        std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << " for " << m_key << std::endl;
         end_connection(clientFd);
     }
 }

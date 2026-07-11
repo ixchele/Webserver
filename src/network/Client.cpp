@@ -22,8 +22,8 @@ void Client::handdle_event(uint32_t event)
   // to do
   if (event == EPOLLIN)
   {
-    if (this->m_requst->receive_data() == 0)
-      this->m_epoll->edit_fd(m_fd, this, EPOLLOUT);
+    if (this->m_requst->receive_data() <= 0)
+      m_server->end_connection(m_fd);
   }
   else if (event == EPOLLOUT)
   {

@@ -15,8 +15,8 @@ int Request::receive_data() {
     int bytes = read(m_client->get_fd(), m_buffer, APP_BUFFER_SIZE - 1);
     if (bytes == -1 || bytes == 0)
     {
-        std::cerr << "warning: read() failed with " << bytes << std::endl;
-        return bytes;   
+        std::cerr << "warning: read() failed with " << bytes << " in " << m_client->m_server->m_key << std::endl;
+        return bytes;
     }
     m_buffer[APP_BUFFER_SIZE - 1] = '\0';
     m_sbuffer += m_buffer;
