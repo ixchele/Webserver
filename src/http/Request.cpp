@@ -40,7 +40,17 @@ void Request::extruction() {
 }
 
 void Request::extruct_request_line() {
-    
+    std::string requestLine;
+    size_t pos;
+
+    pos = m_sbuffer.find("\r\n");
+    if (pos != std::string::npos)
+    {
+        requestLine = m_sbuffer.substr(0, pos + 1);
+        std::cout << "Request line: " << requestLine << std::endl;
+
+        m_step = Step::EHeaders;
+    }
 }
 
 void Request::extruct_headers() {
