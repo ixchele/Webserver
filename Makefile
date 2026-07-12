@@ -7,18 +7,21 @@ RESET = \033[0m
 CLEAR = \033[2K\r
 
 # --- Variables ---
-NAME = Webserver
+NAME = webserv
 CXX = c++
 INC_DIRS := $(shell find include -type d)
 INCLUDES := $(addprefix -I, $(INC_DIRS))
 CPPFLAGS = -Wall -Wextra -Werror -std=c++98 $(INCLUDES)
 LFLAGS =  $(CPPFLAGS)
 SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
-	  ./src/ConfigFileParser/mainTest.cpp \
+	  ./main.cpp \
 	  ./src/ConfigFileParser/ConfigStructures/CommonConfig.cpp \
 	  ./src/ConfigFileParser/ConfigStructures/LocationConfig.cpp \
 	  ./src/ConfigFileParser/ConfigStructures/ServerConfig.cpp \
 	  ./src/ConfigFileParser/ConfigParser.cpp \
+		./src/network/AFd.cpp ./src/network/Server.cpp ./src/network/Client.cpp \
+		./src/network/Multiplexer.cpp ./src/network/Epoll.cpp \
+		./src/http/Request.cpp
 
 OBJ = $(SRC:%.cpp=obj/%.o)
 
