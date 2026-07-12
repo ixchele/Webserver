@@ -11,6 +11,7 @@ class Client : public AFd
 {
 public:
   Server *m_server;
+  // TODO : use server epoll
   Epoll *m_epoll;
   Request *m_requst;
 

@@ -43,6 +43,7 @@ void Server::add_config(const ServerConfig *config) {
     m_configs.push_back(config);
 }
 
+// FIX : replace for loop with find
 const ServerConfig *Server::get_config(const string &host) const {
     for (size_t i = 0; i < m_configs.size(); i++)
     {
@@ -72,6 +73,7 @@ void Server::creat_socket() {
 	}
 }
 
+// TODO : make code more readable
 void Server::bind_address() {
     int opt = 1;
     if (setsockopt(this->m_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0)
@@ -95,6 +97,7 @@ void Server::start_listening() {
 int Server::accept_connection() {
     int clientFd;
 
+	// TODO : catch client infos
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
     if (clientFd != -1)
         m_clients[clientFd] = new Client(clientFd, this, this->m_epoll);
@@ -118,7 +121,7 @@ void Server::handdle_event(uint32_t event) {
         std::cerr << "warning: accept4() failed on " << m_key << std::endl;
         return ;
     }
-    m_clients[clientFd] = new Client(clientFd, this, m_epoll);
+    // m_clients[clientFd] = new Client(clientFd, this, m_epoll);
     std::cout << "Accepted " << m_clients[clientFd]->get_fd() << std::endl;
     if (m_epoll->add_fd(clientFd, static_cast<AFd *>(m_clients[clientFd]), EPOLLIN) != 0)
     {
@@ -128,7 +131,7 @@ void Server::handdle_event(uint32_t event) {
 }
 
 string Server::craft_key(const string &ip, int port) {
-    std::string key;
+	std::stringstream ssKey;
     addrinfo hints, *res;
 
     std::memset(&hints, 0, sizeof(hints));
@@ -140,17 +143,15 @@ string Server::craft_key(const string &ip, int port) {
     }
     else
     {
-        std::stringstream ss;
         sockaddr_in addr;
         char buffer[16];
 
         addr = *((sockaddr_in *)res->ai_addr);
-	    ss << port;
         if (inet_ntop(AF_INET, &addr.sin_addr, buffer, INET_ADDRSTRLEN) == NULL)
             throw std::runtime_error("error: inet_ntop() failed for " + ip);
-        key = &buffer[0];
-        key += ':';
-        key += ss.str();
+        ssKey << &buffer[0];
+        ssKey << ':';
+		ssKey << port;
     }
-    return key;
+    return ssKey.str();
 }

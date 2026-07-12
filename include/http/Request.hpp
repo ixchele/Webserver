@@ -25,7 +25,7 @@ public:
     };
 
     Step m_step;
-    char m_buffer[APP_BUFFER_SIZE];
+    char m_buffer[APP_BUFFER_SIZE + 1];
     Client *m_client;
     Line m_requestLine;
     std::map<std::string, std::string> m_headers;

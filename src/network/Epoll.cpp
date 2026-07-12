@@ -14,7 +14,7 @@ Epoll::Epoll() {
 
 Epoll::~Epoll() {
 	if (m_fd != -1)
-	close(m_fd);
+		close(m_fd);
 }
 
 int Epoll::add_fd(int fd, AFd *ptr, int events) {
