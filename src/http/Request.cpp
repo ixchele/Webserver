@@ -4,7 +4,7 @@
 #include <iostream>
 
 Request::Request(Client *client)
-    : m_step(Step::ERequestLine), m_client(client)
+    : m_step(ERequestLine), m_client(client)
 {
 }
 
@@ -25,15 +25,15 @@ int Request::receive_data() {
 }
 
 void Request::extruction() {
-    if (m_step == Step::ERequestLine)
+    if (m_step == ERequestLine)
     {
         extruct_request_line();
     }
-    if (m_step == Step::EHeaders)
+    if (m_step == EHeaders)
     {
         extruct_headers();
     }
-    if (m_step == Step::EBody)
+    if (m_step == EBody)
     {
         extruct_bodies();
     }
@@ -49,7 +49,7 @@ void Request::extruct_request_line() {
         requestLine = m_sbuffer.substr(0, pos + 1);
         std::cout << "Request line: " << requestLine << std::endl;
 
-        m_step = Step::EHeaders;
+        m_step = EHeaders;
     }
 }
 
