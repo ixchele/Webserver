@@ -4,7 +4,7 @@
 #include <map>
 #include <fstream>
 
-class HttpRequest {
+class Request {
 public:
     enum Method {
         GET,
@@ -21,8 +21,8 @@ public:
         ERROR
     };
 
-    HttpRequest(int client_fd);
-    ~HttpRequest();
+    Request(int client_fd);
+    ~Request();
 
     void parse(const std::string& raw_data);
     void clear();
