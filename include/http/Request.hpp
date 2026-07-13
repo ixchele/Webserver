@@ -1,48 +1,57 @@
 #pragma once
+
 #include <string>
 #include <map>
-#include <vector>
-#include <Client.hpp>
+#include <fstream>
 
-#define APP_BUFFER_SIZE 8192
-
-class Client;
-
-class Request
-{
+class HttpRequest {
 public:
-    enum Step {ERequestLine, EHeaders, EBody};
-
-    struct Line
-    {
-        int method;
-        std::string uri;
-        std::string version;
-
-        Line();
-
-        void clear();
+    enum Method {
+        GET,
+        POST,
+        DELETE,
+        UNKNOWN
     };
 
-    Step m_step;
-    char m_buffer[APP_BUFFER_SIZE + 1];
-    Client *m_client;
-    Line m_requestLine;
-    std::map<std::string, std::string> m_headers;
-    std::vector<std::string> m_bodies;
-    std::vector<std::string> m_chunks;
-    std::string m_sbuffer;
+    enum ParseState {
+        REQUEST_LINE,
+        HEADERS,
+        BODY,
+        COMPLETE,
+        ERROR
+    };
 
-    Request(Client *client);
-    ~Request();
+    HttpRequest(int client_fd);
+    ~HttpRequest();
 
-    int receive_data();
-    void extruction();
-    void extruct_request_line();
-    void extruct_headers();
-    void extruct_bodies();
+    void parse(const std::string& raw_data);
     void clear();
 
+    ParseState getState() const;
+    Method getMethod() const;
+    const std::string& getUri() const;
+    const std::string& getVersion() const;
+    const std::map<std::string, std::string>& getHeaders() const;
+    const std::string& getTempFilename() const;
+    size_t getContentLength() const;
+
 private:
-    /* data */
+    int         _client_fd;
+    ParseState  _state;
+
+    Method      _method;
+    std::string _uri;
+    std::string _version;
+    std::map<std::string, std::string> _headers;
+
+    std::string   _temp_filename;
+    std::ofstream _body_file;
+    size_t        _content_length;
+    size_t        _bytes_received;
+
+    std::string _buffer;
+
+    void _parseRequestLine();
+    void _parseHeaders();
+    void _extractLeftover();
 };
