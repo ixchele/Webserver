@@ -1,4 +1,5 @@
 *.o
+*.pdf
 obj/
 playground/
 compile_flags.txt
