@@ -17,18 +17,21 @@ Client::Client(int fd, Server *server, Epoll *epoll)
   m_requst = new Request(m_fd);
 }
 
-std::string Client::receive_data() {
+vector<uint8_t> Client::receive_data() {
     char buffer[APP_BUFFER_SIZE + 1];
-    std::string sbuffer;
+    vector<uint8_t> v_buffer;
 
     size_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
     if (bytes == -1 || bytes == 0)
     {
         std::cerr << "warning: read() failed with " << bytes << " in " << m_server->m_key << std::endl;
-        return sbuffer;
+        return v_buffer;
     }
-    sbuffer.append(buffer, bytes);
-    return sbuffer;
+    for (int i = 0; i < bytes; bytes++)
+    {
+      v_buffer.push_back(buffer[i]);
+    }
+    return v_buffer;
 }
 
 void Client::handdle_event(uint32_t event)

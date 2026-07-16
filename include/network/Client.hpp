@@ -26,5 +26,5 @@ class Client : public AFd
   private:
     sockaddr_in client_addr;
 
-    std::string receive_data();
+    vector<uint8_t> receive_data();
 };
