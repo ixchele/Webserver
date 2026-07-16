@@ -1,23 +1,30 @@
 #pragma once
 #include <AFd.hpp>
-#include <Server.hpp>
 #include <Epoll.hpp>
 #include <Request.hpp>
+#include <Server.hpp>
+
+#define APP_BUFFER_SIZE 8192 // 8Kb
 
 class Server;
 class Request;
 
 class Client : public AFd
 {
-public:
-  Server *m_server;
-  // TODO : use server epoll
-  Epoll *m_epoll;
-  Request *m_requst;
+  public:
+    Server *m_server;
+    // TODO : use server epoll
+    Epoll *m_epoll;
+    Request *m_requst;
 
-  Client(int fd, Server *server, Epoll *epoll);
+    Client(int fd, Server *server, Epoll *epoll);
 
-  virtual void handdle_event(uint32_t event);
+    virtual void handdle_event(uint32_t event);
 
-  virtual ~Client();
+    virtual ~Client();
+
+  private:
+    sockaddr_in client_addr;
+
+    std::string receive_data();
 };
