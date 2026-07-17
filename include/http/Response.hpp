@@ -2,13 +2,15 @@
 # include <Request.hpp>
 # include <fstream>
 
-class Response
+class HttpResponse
 {
   public:
-    Response(HttpRequest *request);
-    ~Response();
+    HttpResponse(HttpRequest *request);
+    ~HttpResponse();
+
+    void response();
 
   private:
     HttpRequest *_request;
-    std::fstream _file;
+    std::ifstream _bodyFile;
 };
