@@ -1,10 +1,28 @@
 #include <Response.hpp>
 
 
-HttpResponse::HttpResponse(HttpRequest *request) : _request(request)
+HttpResponse::HttpResponse(Client *client, HttpRequest *request)
+    : m_client(client), m_request(request)
 {
 }
 
 HttpResponse::~HttpResponse()
 {
+}
+
+void HttpResponse::response() {
+    
+}
+
+std::string HttpResponse::_get_error_message(int code) {
+    switch(code) {
+        case 400: return "Bad Request";
+        case 403: return "Forbidden";
+        case 404: return "Not Found";
+        case 405: return "Method Not Allowed";
+        case 413: return "Payload Too Large";
+        case 500: return "Internal Server Error";
+        case 501: return "Not Implemented";
+        default:  return "Error";
+    }
 }
