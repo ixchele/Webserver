@@ -22,8 +22,16 @@ void HttpResponse::_delete() {
     {
         switch (errno)
         {
-            case ENOENT: 
+            case ENOENT: _statusCode = HttpStatus::NotFound; break;
+            case EACCES: _statusCode = HttpStatus::Forbidden; break;
+            case EPERM: _statusCode = HttpStatus::Forbidden; break;
+            case EISDIR: _statusCode = HttpStatus::Forbidden; break;
+            default: _statusCode = HttpStatus::InternalServerError;
         }
+    }
+    else
+    {
+        _statusCode = HttpStatus::NoContent;
     }
 }
 

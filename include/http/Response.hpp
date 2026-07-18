@@ -24,6 +24,8 @@ class HttpResponse
     HttpRequest *_request;
     State _state;
     int _bodyFile;
+    HttpStatus::Code _statusCode;
+    std::string _headersBuffer;
 
     std::string _get_code_message(HttpStatus::Code code);
     // void _get();
