@@ -2,7 +2,7 @@
 
 
 HttpResponse::HttpResponse(Client *client, HttpRequest *request)
-    : m_client(client), m_request(request)
+    : _client(client), _request(request)
 {
 }
 
