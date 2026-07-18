@@ -1,9 +1,10 @@
-#pragma once
-#include <ServerConfig.hpp>
-#include <Server.hpp>
-#include <Epoll.hpp>
-#include <vector>
-#include <map>
+#ifndef MULTIPLEXER_HPP
+# define MULTIPLEXER_HPP
+# include <ServerConfig.hpp>
+# include <Server.hpp>
+# include <Epoll.hpp>
+# include <vector>
+# include <map>
 
 using std::vector;
 
@@ -21,3 +22,5 @@ public:
 private:
 	Epoll *m_epoll;
 };
+
+#endif

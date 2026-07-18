@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CLIENT_HPP
+# define CLIENT_HPP
 #include <AFd.hpp>
 #include <Epoll.hpp>
 #include <Request.hpp>
@@ -28,3 +29,5 @@ class Client : public AFd
 
     vector<uint8_t> receive_data();
 };
+
+#endif

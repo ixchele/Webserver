@@ -1,11 +1,12 @@
-#pragma once
-#include <ServerConfig.hpp>
-#include <netinet/in.h>
-#include <string>
-#include <sys/socket.h>
-#include <vector>
-#include <exception>
-#include <sys/epoll.h>
+#ifndef AFD_HPP
+# define AFD_HPP
+# include <ServerConfig.hpp>
+# include <netinet/in.h>
+# include <string>
+# include <sys/socket.h>
+# include <vector>
+# include <exception>
+# include <sys/epoll.h>
 
 class AFd
 {
@@ -21,3 +22,5 @@ class AFd
   protected:
     int m_fd;
 };
+
+#endif

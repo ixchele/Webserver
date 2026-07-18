@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SERVER_HPP
+# define SERVER_HPP
 #include <ServerConfig.hpp>
 #include <Client.hpp>
 #include <Epoll.hpp>
@@ -54,3 +55,5 @@ private:
   void start_listening();
   int accept_connection();
 };
+
+#endif

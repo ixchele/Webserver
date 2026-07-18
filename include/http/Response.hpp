@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RESPONSE_HPP
+# define RESPONSE_HPP
 # include <Request.hpp>
 # include <Client.hpp>
 # include <fstream>
@@ -19,3 +20,5 @@ class HttpResponse
 
     std::string _get_error_message(int code);
 };
+
+#endif
