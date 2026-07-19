@@ -16,7 +16,8 @@ class Client : public AFd
     Server *m_server;
     // TODO : use server epoll
     Epoll *m_epoll;
-    Request *m_requst;
+    HttpRequest *m_requst;
+    HttpResponse *m_response;
 
     Client(int fd, Server *server, Epoll *epoll);
 

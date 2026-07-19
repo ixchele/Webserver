@@ -11,7 +11,9 @@ class HttpResponse
   public:
     enum State {
         Building,
-        Sending
+        SendingHeaders,
+        SendingBody,
+        Complete
     };
 
     HttpResponse(Client *client, HttpRequest *request);
@@ -26,12 +28,14 @@ class HttpResponse
     int _bodyFile;
     HttpStatus::Code _statusCode;
     std::string _buffer;
+    size_t _bytesSent;
 
     std::string _get_code_message(HttpStatus::Code code);
     // void _get();
     // void _post();
     void _delete();
     void _build_headers();
+    void _send_headers();
 };
 
 #endif

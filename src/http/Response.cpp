@@ -3,11 +3,12 @@
 #include <iostream>
 #include <unistd.h>
 #include <errno.h>
+#include <sstream>
 #include <string>
 
 
 HttpResponse::HttpResponse(Client *client, HttpRequest *request)
-    : _client(client), _request(request)
+    : _client(client), _request(request), _bytesSent(0)
 {
 }
 
@@ -49,16 +50,29 @@ void HttpResponse::response() {
             // case HttpRequest::GET: _get(); break; 
             // case HttpRequest::POST: _post(); break; 
         }
-        _state = Sending;
+        _build_headers();
+        _state = SendingHeaders;
     }
-    if (_state == Sending)
+    if (_state == SendingHeaders)
     {
-        
+        _send_headers();
+        _state = SendingBody;
+    }
+    if (_state == SendingBody)
+    {
+        _state = Complete;
     }
 }
 
 void HttpResponse::_build_headers() {
-    
+    std::stringstream ss;
+    ss << _statusCode;
+    _buffer = "Http/1.1 " + ss.str() + _get_code_message(_statusCode) + "\r\n";
+    _buffer.append("Connection: close\r\n");
+}
+
+void HttpResponse::_send_headers() {
+    send(_client->get_fd(), _buffer.c_str(), _buffer.size(), 0);
 }
 
 std::string HttpResponse::_get_code_message(HttpStatus::Code code) {

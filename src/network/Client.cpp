@@ -1,20 +1,24 @@
+#include <Response.hpp>
 #include <Client.hpp>
-#include <Epoll.hpp>
-#include <iostream>
-#include <unistd.h>
 #include <Server.hpp>
+#include <Epoll.hpp>
+#include <unistd.h>
+#include <iostream>
 
 Client::~Client()
 {
   close(m_fd);
   if (m_requst != NULL)
     delete m_requst;
+  if (m_response != NULL)
+    delete m_response;
 }
 
 Client::Client(int fd, Server *server, Epoll *epoll)
     : AFd(fd), m_server(server), m_epoll(epoll)
 {
-  m_requst = new Request(m_fd);
+  m_requst = new HttpRequest(m_fd);
+  m_response = new HttpResponse(this, m_requst);
 }
 
 vector<uint8_t> Client::receive_data() {
@@ -40,12 +44,11 @@ void Client::handdle_event(uint32_t event)
   if (event == EPOLLIN)
   {
     receive_data();
-      
+    m_requst->parse("vector");
   }
   else if (event == EPOLLOUT)
   {
-    write (m_fd, "All readed\n", 11);
-    m_server->end_connection(m_fd);
+    m_response->response();
   }
   else
     m_server->end_connection(m_fd);
