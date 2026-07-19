@@ -25,12 +25,13 @@ class HttpResponse
     State _state;
     int _bodyFile;
     HttpStatus::Code _statusCode;
-    std::string _headersBuffer;
+    std::string _buffer;
 
     std::string _get_code_message(HttpStatus::Code code);
     // void _get();
     // void _post();
     void _delete();
+    void _build_headers();
 };
 
 #endif

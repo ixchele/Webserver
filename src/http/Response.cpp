@@ -49,7 +49,16 @@ void HttpResponse::response() {
             // case HttpRequest::GET: _get(); break; 
             // case HttpRequest::POST: _post(); break; 
         }
+        _state = Sending;
     }
+    if (_state == Sending)
+    {
+        
+    }
+}
+
+void HttpResponse::_build_headers() {
+    
 }
 
 std::string HttpResponse::_get_code_message(HttpStatus::Code code) {
