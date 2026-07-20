@@ -1,23 +1,37 @@
-#pragma once
+#ifndef CLIENT_HPP
+# define CLIENT_HPP
 #include <AFd.hpp>
-#include <Server.hpp>
 #include <Epoll.hpp>
 #include <Request.hpp>
+#include <Server.hpp>
+
+#define APP_BUFFER_SIZE 8192 // 8Kb
 
 class Server;
 class Request;
 
 class Client : public AFd
 {
-public:
-  Server *m_server;
-  // TODO : use server epoll
-  Epoll *m_epoll;
-  Request *m_requst;
+  public:
+    enum e_state {RCEV, SEND};
 
-  Client(int fd, Server *server, Epoll *epoll);
+    e_state m_state;
+    Server *m_server;
+    Epoll *m_epoll;
+    HttpRequest *m_requst;
+    HttpResponse *m_response;
+    std::vector<uint8_t> v_buffer;
 
-  virtual void handdle_event(uint32_t event);
+    Client(int fd, Server *server, Epoll *epoll);
 
-  virtual ~Client();
+    virtual void handdle_event(uint32_t event);
+
+    virtual ~Client();
+
+  private:
+    sockaddr_in _client_addr;
+
+    void receive_data();
 };
+
+#endif

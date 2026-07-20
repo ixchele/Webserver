@@ -1,4 +1,5 @@
-#pragma once
+#ifndef EPOLL_HPP
+# define EPOLL_HPP
 # include <sys/epoll.h>
 # include <AFd.hpp>
 
@@ -18,3 +19,5 @@ public:
 private:
     int m_fd;
 };
+
+#endif
