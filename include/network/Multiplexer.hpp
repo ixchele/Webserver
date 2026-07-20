@@ -12,7 +12,7 @@ using std::vector;
 class Multiplexer
 {
 public:
-	std::map <std::string, Server *> m_servers;
+	std::map <std::string, Server> m_servers;
 
   	Multiplexer(const vector<ServerConfig*> &v_configs);
 
@@ -20,7 +20,7 @@ public:
 	void events_loop();
 	~Multiplexer();
 private:
-	Epoll *m_epoll;
+	Epoll _epoll;
 };
 
 #endif

@@ -29,7 +29,7 @@ class Server : public AFd
 {
 public:
   vector<const ServerConfig *> m_configs;
-  std::map<int, Client *> m_clients;
+  std::map<int, Client> m_clients;
   std::string m_key;
   const std::string m_ip;
   sockaddr_in m_addr;

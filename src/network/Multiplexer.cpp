@@ -36,7 +36,6 @@ void Multiplexer::events_loop()
 Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
 {
   std::string key;
-  m_epoll = new Epoll;
   for (size_t confs = 0; confs < v_configs.size(); confs++)
   {
     for (size_t hosts = 0; hosts < v_configs[confs]->hosts.size(); hosts++)
@@ -46,9 +45,9 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
         key = Server::craft_key(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports]);
         std::cout << "key: " << key << std::endl;
         if (m_servers.find(key) == m_servers.end())
-          this->m_servers[key] = new Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports], v_configs[confs], m_epoll);
+          this->m_servers.insert(std::make_pair(key, Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports], v_configs[confs], &_epoll)));
         else
-          this->m_servers[key]->m_configs.push_back(v_configs[confs]);
+          this->m_servers[key].m_configs.push_back(v_configs[confs]);
       }
     }
   }
@@ -56,12 +55,5 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
 
 Multiplexer::~Multiplexer()
 {
-  std::map<std::string, Server *>::iterator it;
-  for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
-  {
-    if (it->second)
-      delete it->second;
-  }
-  if (m_epoll)
-    delete m_epoll;
+  //
 }

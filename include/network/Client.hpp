@@ -18,11 +18,12 @@ class Client : public AFd
     e_state m_state;
     Server *m_server;
     Epoll *m_epoll;
-    HttpRequest *m_requst;
-    HttpResponse *m_response;
+    HttpRequest m_requst;
+    HttpResponse m_response;
     std::vector<uint8_t> v_buffer;
+    vector<const ServerConfig *> &m_configs;
 
-    Client(int fd, Server *server, Epoll *epoll);
+    Client(int fd, Server *server);
 
     virtual void handdle_event(uint32_t event);
 

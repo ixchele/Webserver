@@ -8,17 +8,12 @@
 Client::~Client()
 {
   close(m_fd);
-  if (m_requst != NULL)
-    delete m_requst;
-  if (m_response != NULL)
-    delete m_response;
 }
 
-Client::Client(int fd, Server *server, Epoll *epoll)
-    : AFd(fd), m_server(server), m_epoll(epoll)
+Client::Client(int fd, Server *server)
+    : AFd(fd), m_server(server)
 {
-  m_requst = new HttpRequest(m_fd);
-  m_response = new HttpResponse(this, m_requst);
+
 }
 
 void Client::receive_data() {
@@ -42,11 +37,11 @@ void Client::handdle_event(uint32_t event)
   if (event == EPOLLIN)
   {
     receive_data();
-    m_requst->parse("vector");
+    m_requst.parse("vector");
   }
   else if (event == EPOLLOUT)
   {
-    m_response->response();
+    m_response.response();
   }
   else
     m_server->end_connection(m_fd);
