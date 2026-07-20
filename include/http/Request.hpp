@@ -51,7 +51,7 @@ private:
 
     std::string _buffer;
 
-    void _parseRequestLine();
-    void _parseHeaders();
-    void _extractLeftover();
+    void _parseRequestLine(const std::string &line);
+    void _parseHeaders(const std::string &header);
+    void _extractLeftover(const std::string &body);
 };
