@@ -13,11 +13,14 @@ class Request;
 class Client : public AFd
 {
   public:
+    enum e_state {RCEV, SEND};
+
+    e_state m_state;
     Server *m_server;
-    // TODO : use server epoll
     Epoll *m_epoll;
     HttpRequest *m_requst;
     HttpResponse *m_response;
+    std::vector<uint8_t> v_buffer;
 
     Client(int fd, Server *server, Epoll *epoll);
 
@@ -26,9 +29,9 @@ class Client : public AFd
     virtual ~Client();
 
   private:
-    sockaddr_in client_addr;
+    sockaddr_in _client_addr;
 
-    vector<uint8_t> receive_data();
+    void receive_data();
 };
 
 #endif
