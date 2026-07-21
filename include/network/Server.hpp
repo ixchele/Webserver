@@ -34,9 +34,8 @@ public:
   const std::string m_ip;
   sockaddr_in m_addr;
   const int m_port;
-  Epoll *m_epoll;
 
-  Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll *epoll);
+  Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll);
 
   virtual void handdle_event(uint32_t event);
 
@@ -50,6 +49,8 @@ public:
   virtual ~Server();
 
 private:
+  Epoll &_epoll;
+
   void creat_socket();
   void bind_address();
   void start_listening();

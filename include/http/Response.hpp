@@ -16,7 +16,7 @@ class HttpResponse
         Complete
     };
 
-    HttpResponse(Client *client, HttpRequest *request);
+    HttpResponse();
     ~HttpResponse();
 
     void response();

@@ -7,8 +7,7 @@
 #include <string>
 
 
-HttpResponse::HttpResponse(Client *client, HttpRequest *request)
-    : _client(client), _request(request), _bytesSent(0)
+HttpResponse::HttpResponse()
 {
 }
 

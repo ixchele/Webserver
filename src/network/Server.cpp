@@ -12,8 +12,8 @@
 #include <sstream>
 #include <cstdlib>
 
-Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
-	: AFd(-1), m_key(key), m_ip(ip), m_port(port), m_epoll(epoll)
+Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll)
+	: AFd(-1), m_key(key), m_ip(ip), m_port(port), _epoll(epoll)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -100,15 +100,14 @@ int Server::accept_connection() {
 	// TODO : catch client infos
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
     if (clientFd != -1)
-        m_clients[clientFd] = new Client(clientFd, this, this->m_epoll);
+        m_clients.insert(std::make_pair(clientFd, Client(clientFd, this->_epoll, m_configs)));
     return clientFd;
 }
 
 void Server::end_connection(int fd) {
-    if (m_clients.find(fd) != m_clients.end() && m_clients[fd] != NULL)
+    if (m_clients.find(fd) != m_clients.end())
     {
-        m_epoll->del_fd(fd);
-        delete m_clients[fd];
+        _epoll.del_fd(fd);
         m_clients.erase(fd);
     }
 }
@@ -121,9 +120,9 @@ void Server::handdle_event(uint32_t event) {
         std::cerr << "warning: accept4() failed on " << m_key << std::endl;
         return ;
     }
-    // m_clients[clientFd] = new Client(clientFd, this, m_epoll);
-    std::cout << "Accepted " << m_clients[clientFd]->get_fd() << std::endl;
-    if (m_epoll->add_fd(clientFd, static_cast<AFd *>(m_clients[clientFd]), EPOLLIN) != 0)
+    // m_clients[clientFd] = new Client(clientFd, this, _epoll);
+    std::cout << "Accepted " << m_clients[clientFd].get_fd() << std::endl;
+    if (_epoll.add_fd(clientFd, static_cast<AFd *>(&m_clients[clientFd]), EPOLLIN) != 0)
     {
         std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << " for " << m_key << std::endl;
         end_connection(clientFd);
