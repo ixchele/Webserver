@@ -10,7 +10,7 @@ void Multiplexer::startup()
     for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
     {
         _epoll.add_fd(it->second.get_fd(), &it->second, EPOLLIN);
-        std::cout << "added " << it->second.get_fd() << std::endl;
+        std::cout << "added " << it->second.m_key << " as " << it->second.get_fd() << std::endl;
     }
     events_loop();
 }
