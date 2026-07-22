@@ -12,7 +12,7 @@ using std::vector;
 class Multiplexer
 {
 public:
-	std::map <std::string, Server> m_servers;
+	std::map <std::string, Server*> m_servers;
 
   	Multiplexer(const vector<ServerConfig*> &v_configs);
 

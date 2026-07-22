@@ -67,6 +67,7 @@ void Server::run() {
 
 void Server::creat_socket() {
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
+    std::cerr << m_fd << std::endl;
 	if (this->m_fd == -1)
 	{
 		throw std::runtime_error("error: socket() for " + m_key + " failed");

@@ -1,9 +1,10 @@
-#include <Epoll.hpp>
 #include <Multiplexer.hpp>
+#include <Epoll.hpp>
+#include <sys/epoll.h>
+#include <string.h>
+#include <stdexcept>
 #include <iostream>
 #include <map>
-#include <sys/epoll.h>
-#include <stdexcept>
 
 void Multiplexer::startup()
 {
@@ -11,7 +12,8 @@ void Multiplexer::startup()
     for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
     {
         if (_epoll.add_fd(it->second.get_fd(), &it->second, EPOLLIN))
-            throw std::runtime_error("failed to add the server " + it->second.m_key + " in the epoll instance");
+            throw std::runtime_error("failed to add the server " + it->second.m_key +
+                                     " in the epoll instance");
         std::cout << "added " << it->second.m_key << " as " << it->second.get_fd() << std::endl;
     }
     events_loop();
