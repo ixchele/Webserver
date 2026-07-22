@@ -99,18 +99,18 @@ int Server::accept_connection() {
 
 	// TODO : catch client infos
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
-    if (clientFd != -1)
-        m_clients.insert(std::make_pair(clientFd, Client(clientFd, this->_epoll, m_configs)));
+    // if (clientFd != -1)
+    //     m_clients.insert(std::make_pair(clientFd, Client(clientFd, this->_epoll, m_configs)));
     return clientFd;
 }
 
-void Server::end_connection(int fd) {
-    if (m_clients.find(fd) != m_clients.end())
-    {
-        _epoll.del_fd(fd);
-        m_clients.erase(fd);
-    }
-}
+// void Server::end_connection(int fd) {
+//     if (m_clients.find(fd) != m_clients.end())
+//     {
+//         _epoll.del_fd(fd);
+//         m_clients.erase(fd);
+//     }
+// }
 
 void Server::handdle_event(uint32_t event) {
     (void)event;
@@ -121,11 +121,12 @@ void Server::handdle_event(uint32_t event) {
         return ;
     }
     // m_clients[clientFd] = new Client(clientFd, this, _epoll);
-    std::cout << "Accepted " << m_clients[clientFd].get_fd() << std::endl;
-    if (_epoll.add_fd(clientFd, static_cast<AFd *>(&m_clients[clientFd]), EPOLLIN) != 0)
+    std::cout << "Accepted " << clientFd << std::endl;
+    Client *client = new Client(clientFd, _epoll, m_configs);
+    if (_epoll.add_fd(clientFd, client, EPOLLIN) != 0)
     {
         std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << " for " << m_key << std::endl;
-        end_connection(clientFd);
+        client->end_connection();
     }
 }
 

@@ -29,7 +29,6 @@ class Server : public AFd
 {
 public:
   vector<const ServerConfig *> m_configs;
-  std::map<int, Client> m_clients;
   std::string m_key;
   const std::string m_ip;
   sockaddr_in m_addr;
@@ -40,7 +39,7 @@ public:
   virtual void handdle_event(uint32_t event);
 
   void run();
-  void end_connection(int fd);
+  // void end_connection(int fd);
   void add_config(const ServerConfig *config);
   const ServerConfig *get_config(const string &host) const;
 
@@ -56,5 +55,8 @@ private:
   void start_listening();
   int accept_connection();
 };
+
+
+typedef std::map<std::string, Server> ServersMap;
 
 #endif

@@ -14,14 +14,16 @@ class Client : public AFd
     enum e_state {RCEVING, SENDING};
 
     e_state m_state;
-    HttpRequest m_requst;
-    HttpResponse m_response;
+    // HttpRequest m_requst;
+    // HttpResponse m_response;
     std::vector<uint8_t> v_buffer;
     std::vector<const ServerConfig *> &m_configs;
 
     Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs);
 
     virtual void handdle_event(uint32_t event);
+  
+    void end_connection();
 
     virtual ~Client();
 
@@ -30,7 +32,6 @@ class Client : public AFd
     Epoll &_epoll;
 
     void _receive_data();
-    void _end_connection();
 };
 
 #endif
