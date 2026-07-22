@@ -28,7 +28,7 @@ class Client : public AFd
     virtual ~Client();
 
   private:
-    sockaddr_in _client_addr;
+    // sockaddr_in _client_addr;
     Epoll &_epoll;
 
     void _receive_data();
