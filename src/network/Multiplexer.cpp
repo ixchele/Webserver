@@ -11,10 +11,10 @@ void Multiplexer::startup()
     ServersMap::iterator it;
     for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
     {
-        if (_epoll.add_fd(it->second.get_fd(), &it->second, EPOLLIN))
-            throw std::runtime_error("failed to add the server " + it->second.m_key +
+        if (_epoll.add_fd(it->second->get_fd(), it->second, EPOLLIN))
+            throw std::runtime_error("failed to add the server " + it->second->m_key +
                                      " in the epoll instance");
-        std::cout << "added " << it->second.m_key << " as " << it->second.get_fd() << std::endl;
+        std::cout << "added " << it->second->m_key << " as " << it->second->get_fd() << std::endl;
     }
     events_loop();
 }
@@ -59,12 +59,16 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
                 ServersMap::iterator it = m_servers.find(key);
                 if (it == m_servers.end())
                 {
-                    this->m_servers.insert(
-                        std::make_pair(key, Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports],
-                                                   v_configs[confs], _epoll)));
+                    this->m_servers[key] = new Server(
+                        key, 
+                        v_configs[confs]->hosts[hosts],
+                        v_configs[confs]->listen[ports],
+                        v_configs[confs],
+                        _epoll
+                    );
                 }
                 else
-                    it->second.m_configs.push_back(v_configs[confs]);
+                    it->second->m_configs.push_back(v_configs[confs]);
             }
         }
     }

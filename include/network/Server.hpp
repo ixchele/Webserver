@@ -57,6 +57,6 @@ private:
 };
 
 
-typedef std::map<std::string, Server> ServersMap;
+typedef std::map<std::string, Server*> ServersMap;
 
 #endif
