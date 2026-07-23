@@ -58,7 +58,7 @@ void Client::end_connection() {
 const ServerConfig *Client::get_config(const std::string &host) const {
     for (size_t i = 0; i < m_configs.size(); i++)
     {
-        for (size_t n = 0; n < m_configs[i]->names.size(); i++)
+        for (size_t n = 0; n < m_configs[i]->names.size(); n++)
         {
             if (m_configs[i]->names[n] == host)
             {
