@@ -28,8 +28,9 @@ void Client::_receive_data() {
     for (size_t i = 0; i < bytes; i++)
     {
       v_buffer.push_back(buffer[i]);
-      std::cout << buffer[i] << std::endl;
+      std::cout << buffer[i];
     }
+    std::cout << std::endl;
 }
 
 void Client::handdle_event(uint32_t event)
