@@ -1,7 +1,7 @@
 #ifndef SERVER_HPP
 # define SERVER_HPP
 #include <ServerConfig.hpp>
-#include <Client.hpp>
+// #include <Client.hpp>
 #include <Epoll.hpp>
 #include <AFd.hpp>
 #include <netinet/in.h>

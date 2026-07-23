@@ -10,12 +10,7 @@
 #include <vector>
 
 
-// NOTE : available methods macros
-
-#define HEAD 1
-#define GET 2
-#define POST 4
-#define DELETE 8
+#include <HttpMethod.hpp>
 
 
 class	ConfigParser {

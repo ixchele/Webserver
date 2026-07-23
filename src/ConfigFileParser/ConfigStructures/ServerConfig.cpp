@@ -24,7 +24,7 @@ void	ServerConfig::resetConf(void) {
 static void	validateDirectives(const LocationConfig &location) {
 	if (location.root.empty())
 		throw ConfigParser::ConfigException("invalid location block " + location.path + " : root directive miss");
-	if (!location.upload.empty() && !(location.methods & POST))
+	if (!location.upload.empty() && !(location.methods & HTTP_POST))
 		throw ConfigParser::ConfigException("invalid location block " + location.path + " : upload path without POST method");
 }
 

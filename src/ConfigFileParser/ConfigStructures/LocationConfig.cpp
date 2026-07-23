@@ -4,13 +4,13 @@
 #include <sstream>
 
 LocationConfig::LocationConfig(void) 
-	: path(""), methods(GET), upload("") {
+	: path(""), methods(HTTP_GET), upload("") {
 	// pass
 }
 
 void	LocationConfig::resetConf(void) {
 	this->path = "";
-	this->methods = GET;
+	this->methods = HTTP_GET;
 	this->upload = "";
 	CommonConfig::resetConf();
 }
@@ -25,9 +25,10 @@ std::string LocationConfig::toString(const std::string& indent) const {
     ss << indent << "methods: " << methods << " (";
     if (methods == 0) ss << "None/Default";
     else {
-        if (methods & 1) ss << "GET ";
-        if (methods & 2) ss << "POST ";
-        if (methods & 4) ss << "DELETE";
+        if (methods & HTTP_HEAD) ss << "HEAD ";
+        if (methods & HTTP_GET) ss << "GET ";
+        if (methods & HTTP_POST) ss << "POST ";
+        if (methods & HTTP_DELETE) ss << "DELETE";
     }
     ss << ")\n";
 

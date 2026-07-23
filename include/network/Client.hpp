@@ -8,7 +8,8 @@
 #define APP_BUFFER_SIZE 8192 // 8Kb
 
 class Server;
-class Request;
+class HttpRequest;
+class HttpResponse;
 
 class Client : public AFd
 {
@@ -28,8 +29,8 @@ class Client : public AFd
 
     virtual ~Client();
 
-  private:
-    sockaddr_in _client_addr;
+  // private:
+  //   sockaddr_in _client_addr;
 
     void receive_data();
 };

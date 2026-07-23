@@ -46,9 +46,10 @@ void HttpResponse::response() {
     {
         switch (_request->getMethod())
         {
-            case HttpRequest::DELETE: _delete(); break; 
-            // case HttpRequest::GET: _get(); break; 
-            // case HttpRequest::POST: _post(); break; 
+            case HTTP_DELETE: _delete(); break; 
+            // case HTTP_GET: _get(); break; 
+            // case HTTP_POST: _post(); break; 
+            default: break;
         }
         _build_headers();
         _state = SendingHeaders;

@@ -5,3 +5,5 @@ playground/
 compile_flags.txt
 webserv
 
+package-lock.json
+package.json
