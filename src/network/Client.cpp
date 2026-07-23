@@ -25,7 +25,7 @@ void Client::_receive_data() {
         std::cerr << "warning: read() failed with " << bytes << " in " << std::endl;
         return;
     }
-    for (size_t i = 0; i < bytes; bytes++)
+    for (size_t i = 0; i < bytes; i++)
     {
       v_buffer.push_back(buffer[i]);
       std::cout << buffer[i] << std::endl;
