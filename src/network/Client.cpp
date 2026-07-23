@@ -25,11 +25,8 @@ void Client::_receive_data() {
         std::cerr << "warning: read() failed with " << bytes << " in " << std::endl;
         return;
     }
-    for (size_t i = 0; i < bytes; i++)
-    {
-      v_buffer.push_back(buffer[i]);
-      std::cout << buffer[i];
-    }
+    m_buffer.append(buffer, bytes);
+    std::cout << m_buffer;
     std::cout << std::endl;
 }
 
@@ -56,4 +53,18 @@ void Client::end_connection() {
   _epoll.del_fd(m_fd);
   std::cerr << "Ended connection with " << m_fd << std::endl;
   delete this;
+}
+
+const ServerConfig *Client::get_config(const std::string &host) const {
+    for (size_t i = 0; i < m_configs.size(); i++)
+    {
+        for (size_t n = 0; n < m_configs[i]->names.size(); i++)
+        {
+            if (m_configs[i]->names[n] == host)
+            {
+                return m_configs[i];
+            }
+        }
+    }
+    return m_configs[0];
 }

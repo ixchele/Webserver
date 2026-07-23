@@ -28,6 +28,8 @@ void Multiplexer::events_loop()
     {
         epoll_event events[MAXEVENTS];
         readyFds = _epoll.wait(events);
+        if (readyFds == -1)
+            
         for (int i = 0; i < readyFds; i++)
         {
             fdObj = static_cast<AFd *>(events[i].data.ptr);
@@ -76,5 +78,13 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
 
 Multiplexer::~Multiplexer()
 {
-    //
+    ServersMap::iterator it;
+    for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
+    {
+        if (it->second != NULL)
+        {
+            _epoll.del_fd(it->second->get_fd());
+            delete it->second;
+        }
+    }
 }

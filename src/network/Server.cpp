@@ -43,22 +43,6 @@ void Server::add_config(const ServerConfig *config) {
     m_configs.push_back(config);
 }
 
-// FIX : replace for loop with find
-const ServerConfig *Server::get_config(const string &host) const {
-    for (size_t i = 0; i < m_configs.size(); i++)
-    {
-        for (size_t n = 0; n < m_configs[i]->names.size(); i++)
-        {
-            if (m_configs[i]->names[n] == host)
-            {
-                return m_configs[i];
-            }
-        }
-    }
-    throw std::runtime_error("Host name \"" + host + "\" is not found");
-    return m_configs[0];
-}
-
 void Server::run() {
     creat_socket();
     bind_address();
