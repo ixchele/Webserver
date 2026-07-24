@@ -22,8 +22,8 @@ void Client::_receive_data() {
     if (bytes == static_cast<size_t>(-1) || bytes == 0)
     {
         // TODO: we must do something about logs
-        std::cerr << "warning: read() failed with " << bytes << " in " << std::endl;
-        return;
+        std::cerr << "warning: read() failed with " << bytes << " in " << std::endl; 
+        end_connection();
     }
     m_buffer.append(buffer, bytes);
     std::cout << m_buffer;
@@ -33,13 +33,17 @@ void Client::_receive_data() {
 void Client::handdle_event(uint32_t event)
 {
   // to do
-  if (event == EPOLLIN)
+  if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
+  {
+    end_connection();
+  }
+  if (event & EPOLLIN)
   {
     _receive_data();
     // m_requst.parse("vector");
     end_connection();
   }
-  else if (event == EPOLLOUT)
+  if (event & EPOLLOUT)
   {
     // m_response.response();
 
