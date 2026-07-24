@@ -97,13 +97,13 @@ int Server::accept_connection() {
 //     }
 // }
 
-void Server::handdle_event(uint32_t event) {
+int Server::handdle_event(uint32_t event) {
     (void)event;
     int clientFd = accept_connection();
     if (clientFd == -1)
     {
         std::cerr << "warning: accept4() failed on " << m_key << std::endl;
-        return ;
+        return EVENT_CONTINUE;
     }
     // m_clients[clientFd] = new Client(clientFd, this, _epoll);
     std::cout << "Accepted " << clientFd << std::endl;
@@ -111,8 +111,11 @@ void Server::handdle_event(uint32_t event) {
     if (_epoll.add_fd(clientFd, static_cast<AFd *>(client), EPOLLIN) != 0)
     {
         std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << " for " << m_key << std::endl;
-        client->end_connection();
+        _epoll.del_fd(clientFd);
+        delete client;
+        std::cerr << "Ended connection with " << clientFd << std::endl;
     }
+    return EVENT_CONTINUE;
 }
 
 string Server::craft_key(const string &ip, int port) {

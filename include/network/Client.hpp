@@ -22,11 +22,9 @@ class Client : public AFd
 
     Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs);
 
-    virtual void handdle_event(uint32_t event);
+    virtual int handdle_event(uint32_t event);
 
     const ServerConfig *get_config(const std::string &host) const;
-  
-    void end_connection();
 
     virtual ~Client();
 
@@ -35,7 +33,7 @@ class Client : public AFd
     Epoll &_epoll;
 
 
-    void _receive_data();
+    int _receive_data();
 };
 
 #endif

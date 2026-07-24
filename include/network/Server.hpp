@@ -34,7 +34,7 @@ public:
 
   Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll);
 
-  virtual void handdle_event(uint32_t event);
+  virtual int handdle_event(uint32_t event);
 
   void run();
   // void end_connection(int fd);

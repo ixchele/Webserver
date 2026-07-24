@@ -15,7 +15,7 @@ class AFd
 
     int get_fd() const;
 
-    virtual void handdle_event(uint32_t event) = 0;
+    virtual int handdle_event(uint32_t event) = 0;
 
     virtual ~AFd();
 
