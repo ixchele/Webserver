@@ -24,6 +24,7 @@ void Client::_receive_data() {
         // TODO: we must do something about logs
         std::cerr << "warning: read() failed with " << bytes << " in " << std::endl; 
         end_connection();
+        return ;
     }
     m_buffer.append(buffer, bytes);
     std::cout << m_buffer;
@@ -36,18 +37,21 @@ void Client::handdle_event(uint32_t event)
   if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
   {
     end_connection();
+    return ;
   }
   if (event & EPOLLIN)
   {
     _receive_data();
     // m_requst.parse("vector");
     end_connection();
+    return ;
   }
   if (event & EPOLLOUT)
   {
     // m_response.response();
 
     end_connection();
+    return ;
   }
   else
     end_connection();
