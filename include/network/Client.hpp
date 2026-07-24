@@ -30,7 +30,7 @@ class Client : public AFd
 
   private:
     // sockaddr_in _client_addr;
-    Epoll &_epoll;
+    // Epoll &_epoll;
 
 
     int _receive_data();
