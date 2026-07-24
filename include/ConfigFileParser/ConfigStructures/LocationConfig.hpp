@@ -1,5 +1,6 @@
 #pragma once
 #include <CommonConfig.hpp>
+#include <HttpMethod.hpp>
 
 struct	LocationConfig : public CommonConfig {
 	std::string	path;

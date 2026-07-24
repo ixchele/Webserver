@@ -1,66 +1,147 @@
+#include "HttpStatus.hpp"
+#include "Uri.hpp"
 #include <Request.hpp>
+#include <cstddef>
+#include <sstream>
+#include <string>
 #include <unistd.h>
-#include <stdexcept>
 #include <iostream>
+#include <cctype>
 
-Request::Request(Client *client)
-    : m_step(ERequestLine), m_client(client)
-{
+HttpRequest::HttpRequest(int client_fd) 
+    : _client_fd(client_fd), _state(REQUEST_LINE), _content_length(0), _bytes_received(0) {}
+
+HttpRequest::ParseState	HttpRequest::getState() const { return _state; }
+
+HttpStatus::Code	HttpRequest::getErrorCode() const { return _code; }
+
+HttpRequest::Method	HttpRequest::getMethod() const { return _method; }
+
+const Uri	&HttpRequest::getUri() const { return _uri; }
+
+const std::string	&HttpRequest::getVersion() const { return _version; }
+
+const std::string	&HttpRequest::getTmpFilename() const { return _temp_filename; }
+
+size_t	HttpRequest::getContentLength() const { return _content_length; }
+
+const std::map<std::string, std::string> &HttpRequest::getHeaders() const { return _headers; }
+
+void	HttpRequest::_parseRequestLine(const std::string &line) {
+	std::istringstream	iss(line);
+	std::string			method_str, uri, version, extra;
+
+	if (!std::getline(iss, method_str, ' ')
+			|| !std::getline(iss, uri, ' ')
+			|| !std::getline(iss, version, ' ')
+			|| std::getline(iss, extra, ' '))
+	{
+		_state = ERROR;
+		_code = HttpStatus::BadRequest; // NOTE : error 400
+		return;
+	}
+
+	if (method_str.empty() || uri.empty() || version.empty()) {
+		_state = ERROR;
+		_code = HttpStatus::BadRequest; // NOTE : error 400
+		return;
+	}
+
+	if (method_str == "GET") _method = HTTP_GET;
+	else if (method_str == "POST") _method = HTTP_POST;
+	else if (method_str == "DELETE") _method = HTTP_DELETE;
+	else if (method_str == "HEAD") _method = HTTP_HEAD;
+	else {
+		_state = ERROR;
+		_code = HttpStatus::NotImplemented; // NOTE : 501
+		return;
+	}
+
+	if (!_uri.parse(uri)) {
+		_state = ERROR;
+		_code = HttpStatus::BadRequest; // NOTE : 400
+		return;
+	}
+
+	_uri = uri;
+
+	if (version != "HTTP/1.1") {
+		_state = ERROR;
+		_code = HttpStatus::HTTPVersionNotSupported; // NOTE : 505
+		return;
+	}
+	_version = version;
+
+	_state = HEADERS;
 }
 
-Request::~Request()
-{
-}
-
-void Request::extruction() {
-    if (m_step == ERequestLine)
-    {
-        extruct_request_line();
+void HttpRequest::_parseHeaders(const std::string &line) {
+    size_t	colon_pos = line.find(':');
+    if (colon_pos == std::string::npos) {
+        _state = ERROR;
+        _code = HttpStatus::BadRequest; // NOTE : 400
+        return;
     }
-    if (m_step == EHeaders)
-    {
-        extruct_headers();
+
+    std::string	key = line.substr(0, colon_pos);
+    std::string	value = line.substr(colon_pos + 1);
+
+    if (key.empty() || key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t') {
+        _state = ERROR;
+        _code = HttpStatus::BadRequest; // NOTE : 400
+        return;
     }
-    if (m_step == EBody)
-    {
-        extruct_bodies();
-    }
+
+    for (size_t i = 0; i < key.length(); ++i)
+        key[i] = std::tolower(key[i]);
+
+    size_t	value_start = value.find_first_not_of(" \t");
+    if (value_start != std::string::npos) {
+        size_t	value_end = value.find_last_not_of(" \t");
+        value = value.substr(value_start, value_end - value_start + 1);
+    } else
+        value = "";
+
+    _headers[key] = value;
 }
 
-void Request::extruct_request_line() {
-    std::string requestLine;
-    size_t pos;
 
-    pos = m_sbuffer.find("\r\n");
-    if (pos != std::string::npos)
-    {
-        requestLine = m_sbuffer.substr(0, pos + 1);
-        std::cout << "Request line: " << requestLine << std::endl;
+void	HttpRequest::parse(const std::string &raw_data) {
 
-        m_step = EHeaders;
-    }
-}
+	_buffer.append(raw_data);
 
-void Request::extruct_headers() {
+	while (_state != HEADERS_COMPLETE && _state != COMPLETE && _state != ERROR) {
 
-}
+		if (_state == REQUEST_LINE || _state == HEADERS) {
+			size_t pos = _buffer.find("\r\n");
 
-void Request::extruct_bodies() {
+			if (pos == std::string::npos)
+				break; 
 
-}
+			std::string line = _buffer.substr(0, pos);
 
-Request::Line::Line() : method(0) {}
+			if (_state == REQUEST_LINE)
+				_parseRequestLine(line);
 
-void Request::Line::clear() {
-    this->method = 0;
-    this->uri.clear();
-    this->version.clear();
-}
+			else if (_state == HEADERS) {
+				if (line.empty()) {
+					_state = HEADERS_COMPLETE;
+					_buffer.erase(0, pos + 2);
+					break;
+				}
+				else
+					_parseHeaders(line);
+			}
 
-void Request::clear() {
-    this->m_bodies.clear();
-    this->m_chunks.clear();
-    this->m_headers.clear();
-    this->m_sbuffer.clear();
-    this->m_requestLine.clear();
+			if (_state != HEADERS_COMPLETE) {
+				_buffer.erase(0, pos + 2);
+			}
+		}
+
+		else if (_state == BODY) {
+			// TODO : body parsing, handle content lenght and chunked encoding.
+			// right now we break to not loop infintly
+			break; 
+		}
+	}
 }

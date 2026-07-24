@@ -108,7 +108,7 @@ void Server::handdle_event(uint32_t event) {
     // m_clients[clientFd] = new Client(clientFd, this, _epoll);
     std::cout << "Accepted " << clientFd << std::endl;
     Client *client = new Client(clientFd, _epoll, m_configs);
-    if (_epoll.add_fd(clientFd, client, EPOLLIN) != 0)
+    if (_epoll.add_fd(clientFd, static_cast<AFd *>(client), EPOLLIN) != 0)
     {
         std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << " for " << m_key << std::endl;
         client->end_connection();

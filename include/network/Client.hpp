@@ -8,6 +8,7 @@
 
 #define APP_BUFFER_SIZE 8192 // 8Kb
 
+
 class Client : public AFd
 {
   public:
@@ -32,6 +33,7 @@ class Client : public AFd
   private:
     // sockaddr_in _client_addr;
     Epoll &_epoll;
+
 
     void _receive_data();
 };

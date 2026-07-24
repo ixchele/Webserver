@@ -23,8 +23,6 @@ using std::vector;
 
 typedef char methods_t;
 
-class Client;
-
 class Server : public AFd
 {
 public:
