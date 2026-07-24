@@ -12,6 +12,7 @@ Client::~Client()
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd), m_configs(configs), _epoll(epoll)
 {
+  (void)_epoll;
 }
 
 int Client::_receive_data()
