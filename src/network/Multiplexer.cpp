@@ -28,7 +28,6 @@ void Multiplexer::events_loop()
     {
         epoll_event events[MAXEVENTS];
         readyFds = _epoll.wait(events);
-        if (readyFds == -1)
             
         for (int i = 0; i < readyFds; i++)
         {
