@@ -38,8 +38,8 @@ void Multiplexer::events_loop()
                 if (fdObj->handdle_event(events[i].events) != EVENT_CONTINUE)
                 {
                     _epoll.del_fd(fdObj->get_fd());
-                    delete fdObj;
                     std::cerr << "Ended connection with " << fdObj->get_fd() << std::endl;
+                    delete fdObj;
                 }
             }
             catch (const std::exception &e)
