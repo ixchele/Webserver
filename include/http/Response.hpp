@@ -16,7 +16,7 @@ class HttpResponse
         Complete
     };
 
-    HttpResponse(HttpRequest &request);
+    HttpResponse(HttpRequest &request, int clientFd);
     ~HttpResponse();
 
     void response();

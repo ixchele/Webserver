@@ -10,7 +10,7 @@ Client::~Client()
 }
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
-    : AFd(fd), m_configs(configs), _epoll(epoll)
+    : AFd(fd), m_configs(configs), _epoll(epoll), _request(fd), _response(_request, fd)
 {
   (void)_epoll;
 }
@@ -37,7 +37,7 @@ int Client::handdle_event(uint32_t event)
     // to do
     if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
     {
-      return EVENT_FINISHED;
+      return EVENT_ERROR;
     }
     if (event & EPOLLIN)
     {

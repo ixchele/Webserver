@@ -7,8 +7,9 @@
 #include <string>
 
 
-HttpResponse::HttpResponse(HttpRequest &request)
-    : _request(request)
+HttpResponse::HttpResponse(HttpRequest &request, int clientFd)
+    : _request(request), _clientFd(clientFd),
+    _state(Building)
 {
 }
 

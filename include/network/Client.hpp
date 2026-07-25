@@ -2,6 +2,7 @@
 # define CLIENT_HPP
 #include <ServerConfig.hpp>
 #include <Request.hpp>
+#include <Response.hpp>
 #include <Epoll.hpp>
 #include <AFd.hpp>
 #include <vector>
@@ -15,8 +16,6 @@ class Client : public AFd
     enum e_state {RCEVING, SENDING};
 
     e_state m_state;
-    // HttpRequest m_requst;
-    // HttpResponse m_response;
     std::string m_buffer;
     std::vector<const ServerConfig *> &m_configs;
 
@@ -31,6 +30,8 @@ class Client : public AFd
   private:
     // sockaddr_in _client_addr;
     Epoll &_epoll;
+    HttpRequest _request;
+    HttpResponse _response;
 
 
     int _receive_data();
