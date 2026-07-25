@@ -31,7 +31,7 @@ class Client : public AFd
     // sockaddr_in _client_addr;
     Epoll &_epoll;
     HttpRequest _request;
-    HttpResponse _response;
+    // HttpResponse _response;
 
 
     int _receive_data();

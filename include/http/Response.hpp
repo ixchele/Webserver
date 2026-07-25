@@ -2,7 +2,6 @@
 #define RESPONSE_HPP
 #include <HttpStatus.hpp>
 #include <Request.hpp>
-#include <Client.hpp>
 #include <fstream>
 #include <string>
 

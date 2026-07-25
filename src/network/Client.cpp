@@ -1,6 +1,7 @@
 #include <Client.hpp>
 #include <Epoll.hpp>
-#include <Response.hpp>
+// #include <Response.hpp>
+#include <Request.hpp>
 #include <iostream>
 #include <unistd.h>
 
@@ -10,7 +11,7 @@ Client::~Client()
 }
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
-    : AFd(fd), m_configs(configs), _epoll(epoll), _request(fd), _response(_request, fd)
+    : AFd(fd), m_configs(configs), _epoll(epoll), _request(fd)//, _response(_request, fd)
 {
   (void)_epoll;
 }
@@ -26,9 +27,9 @@ int Client::_receive_data()
         std::cerr << "warning: recv() failed with " << bytes << " in " << std::endl;
         return EVENT_ERROR;
     }
-    m_buffer.append(buffer, bytes);
-    std::cout << m_buffer;
-    std::cout << std::endl;
+    buffer[bytes] = '\0';
+    _request.parse(buffer);
+    std::cout << _request.getUri().getPath() << std::endl;
     return EVENT_FINISHED;
 }
 

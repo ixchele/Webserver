@@ -21,7 +21,7 @@ SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
 	  ./src/ConfigFileParser/ConfigParser.cpp \
 		./src/network/AFd.cpp ./src/network/Server.cpp ./src/network/Client.cpp \
 		./src/network/Multiplexer.cpp ./src/network/Epoll.cpp \
-		#./src/http/Request.cpp ./src/http/Response.cpp ./src/http/Uri.cpp
+		./src/http/Request.cpp ./src/http/Uri.cpp #./src/http/Response.cpp
 
 OBJ = $(SRC:%.cpp=obj/%.o)
 
