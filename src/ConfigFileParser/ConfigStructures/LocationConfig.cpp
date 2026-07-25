@@ -25,7 +25,7 @@ std::string LocationConfig::toString(const std::string& indent) const {
     ss << indent << "methods: " << methods << " (";
     if (methods == 0) ss << "None/Default";
     else {
-        if (methods & HTTP_HEAD) ss << "HEAD ";
+        // if (methods & HTTP_HEAD) ss << "HEAD ";
         if (methods & HTTP_GET) ss << "GET ";
         if (methods & HTTP_POST) ss << "POST ";
         if (methods & HTTP_DELETE) ss << "DELETE";

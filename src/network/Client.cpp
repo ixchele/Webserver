@@ -4,6 +4,7 @@
 #include <Request.hpp>
 #include <iostream>
 #include <unistd.h>
+#include <sys/socket.h>
 
 Client::~Client()
 {
@@ -29,7 +30,9 @@ int Client::_receive_data()
     }
     buffer[bytes] = '\0';
     _request.parse(buffer);
-    std::cout << _request.getUri().getPath() << std::endl;
+    std::cout << "Method: " << _request.getMethod() << std::endl;
+    std::cout << "Path: " << _request.getUri().getPath() << std::endl;
+    std::cout << "version: " << _request.getVersion() << std::endl;
     return EVENT_FINISHED;
 }
 

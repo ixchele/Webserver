@@ -1,8 +1,9 @@
 #include <HttpStatus.hpp>
-// #include <Response.hpp>
-#include <iostream>
+#include <Response.hpp>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <errno.h>
+#include <iostream>
 #include <sstream>
 #include <string>
 
