@@ -29,10 +29,27 @@ int Client::_receive_data()
         return EVENT_ERROR;
     }
     buffer[bytes] = '\0';
+
     _request.parse(buffer);
+
+    if (_request.getState() == HttpRequest::HEADERS_COMPLETE)
+    {
+        // _check_request();
+    }
+    if (_request.getState() == HttpRequest::BODY)
+    {
+        // _check_request();
+    }
+    if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
+    {
+        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+    }
+
+
     std::cout << "Method: " << _request.getMethod() << std::endl;
     std::cout << "Path: " << _request.getUri().getPath() << std::endl;
     std::cout << "version: " << _request.getVersion() << std::endl;
+
     return EVENT_FINISHED;
 }
 
