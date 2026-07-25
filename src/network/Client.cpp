@@ -58,7 +58,7 @@ int Client::handdle_event(uint32_t event)
         return EVENT_FINISHED;
 }
 
-const ServerConfig *Client::get_config(const std::string &host) const
+const ServerConfig *Client::_get_config(const std::string &host)
 {
     for (size_t i = 0; i < m_configs.size(); i++)
     {
@@ -70,5 +70,6 @@ const ServerConfig *Client::get_config(const std::string &host) const
             }
         }
     }
+    std::cerr << "warning: Client with fd " << m_fd << " will use the default config" << std::endl;
     return m_configs[0];
 }

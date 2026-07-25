@@ -23,18 +23,17 @@ class Client : public AFd
 
     virtual int handdle_event(uint32_t event);
 
-    const ServerConfig *get_config(const std::string &host) const;
-
     virtual ~Client();
 
   private:
     // sockaddr_in _client_addr;
     Epoll &_epoll;
     HttpRequest _request;
+    std::string _config;
     // HttpResponse _response;
 
-
     int _receive_data();
+    const ServerConfig *_get_config(const std::string &host);
 };
 
 #endif
