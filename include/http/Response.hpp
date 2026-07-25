@@ -16,14 +16,14 @@ class HttpResponse
         Complete
     };
 
-    HttpResponse(HttpRequest &_request);
+    HttpResponse(HttpRequest &request);
     ~HttpResponse();
 
     void response();
 
   private:
-    const Client *_client;
     HttpRequest &_request;
+    int _clientFd;
     State _state;
     int _bodyFile;
     HttpStatus::Code _statusCode;

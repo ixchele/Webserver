@@ -7,7 +7,8 @@
 #include <string>
 
 
-HttpResponse::HttpResponse()
+HttpResponse::HttpResponse(HttpRequest &request)
+    : _request(request)
 {
 }
 
@@ -18,7 +19,7 @@ HttpResponse::~HttpResponse()
 void HttpResponse::_delete() {
     // To do: I must check the config
 
-    if (unlink(_request->getUri().c_str()) == -1)
+    if (unlink(_request.getUri().getPath().c_str()) == -1)
     {
         switch (errno)
         {
@@ -36,14 +37,9 @@ void HttpResponse::_delete() {
 }
 
 void HttpResponse::response() {
-    if (_request == NULL || _client == NULL)
-    {
-        std::cerr << "warning: response couldn't find client or request" << std::endl;
-        return ;
-    }
     if (_state == Building)
     {
-        switch (_request->getMethod())
+        switch (_request.getMethod())
         {
             case HTTP_DELETE: _delete(); break; 
             // case HTTP_GET: _get(); break; 
@@ -72,7 +68,7 @@ void HttpResponse::_build_headers() {
 }
 
 void HttpResponse::_send_headers() {
-    send(_client->get_fd(), _buffer.c_str(), _buffer.size(), 0);
+    send(_clientFd, _buffer.c_str(), _buffer.size(), 0);
 }
 
 std::string HttpResponse::_get_code_message(HttpStatus::Code code) {
