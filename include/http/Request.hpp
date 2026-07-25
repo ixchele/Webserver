@@ -21,11 +21,11 @@ class HttpRequest {
 		};
 
 		HttpRequest(int client_fd);
-		~HttpRequest();
+		// ~HttpRequest();
 
 		void	parse(const std::string &raw_data);
-		void	clear();
-		void	prepareBodyStorage(const std::string &filepath);
+		// void	clear();
+		// void	prepareBodyStorage(const std::string &filepath);
 
 		ParseState			getState() const;
 		HttpStatus::Code	getErrorCode() const;
@@ -55,5 +55,5 @@ class HttpRequest {
 
 		void	_parseRequestLine(const std::string &line);
 		void	_parseHeaders(const std::string &header);
-		void	_extractLeftover();
+		// void	_extractLeftover();
 };
