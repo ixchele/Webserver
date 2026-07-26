@@ -103,7 +103,7 @@ int Server::handdle_event(uint32_t event) {
     if (clientFd == -1)
     {
         std::cerr << "warning: accept4() failed on " << m_key << std::endl;
-        return EVENT_CONTINUE;
+        return Epoll::EVENT_CONTINUE;
     }
     // m_clients[clientFd] = new Client(clientFd, this, _epoll);
     std::cout << "Accepted " << clientFd << std::endl;
@@ -115,7 +115,7 @@ int Server::handdle_event(uint32_t event) {
         delete client;
         std::cerr << "Ended connection with " << clientFd << std::endl;
     }
-    return EVENT_CONTINUE;
+    return Epoll::EVENT_CONTINUE;
 }
 
 string Server::craft_key(const string &ip, int port) {

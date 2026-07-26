@@ -54,7 +54,6 @@ void HttpResponse::response() {
     if (_state == SendingHeaders)
     {
         _send_headers();
-        _state = SendingBody;
     }
     if (_state == SendingBody)
     {
@@ -65,12 +64,8 @@ void HttpResponse::response() {
 void HttpResponse::_build_headers() {
     std::stringstream ss;
     ss << _statusCode;
-    _buffer = "Http/1.1 " + ss.str() + _get_code_message(_statusCode) + "\r\n";
-    _buffer.append("Connection: close\r\n");
-}
-
-void HttpResponse::_send_headers() {
-    send(_clientFd, _buffer.c_str(), _buffer.size(), 0);
+    m_buffer = "Http/1.1 " + _get_code_message(_statusCode) + ss.str() + "\r\n";
+    m_buffer.append("Connection: close\r\n");
 }
 
 std::string HttpResponse::_get_code_message(HttpStatus::Code code) {

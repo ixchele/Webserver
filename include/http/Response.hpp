@@ -15,6 +15,8 @@ class HttpResponse
         Complete
     };
 
+    std::string m_buffer;
+
     HttpResponse(HttpRequest &request, int clientFd);
     ~HttpResponse();
 
@@ -26,7 +28,6 @@ class HttpResponse
     State _state;
     int _bodyFile;
     HttpStatus::Code _statusCode;
-    std::string _buffer;
     size_t _bytesSent;
 
     std::string _get_code_message(HttpStatus::Code code);

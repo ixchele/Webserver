@@ -4,13 +4,15 @@
 # include <AFd.hpp>
 
 # define MAXEVENTS 64
-# define EVENT_CONTINUE 0
-# define EVENT_FINISHED 1
-# define EVENT_ERROR 2
 
 class Epoll
 {
 public:
+    enum EventState {
+        EVENT_CONTINUE = 0,
+        EVENT_FINISHED = 1,
+        EVENT_ERROR = 2
+    };
     Epoll();
     ~Epoll();
 

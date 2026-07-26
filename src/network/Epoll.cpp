@@ -46,7 +46,7 @@ void Epoll::del_fd(int fd) {
 }
 
 int	Epoll::wait(epoll_event *events) {
-	int readyFds = epoll_wait(m_fd, events, MAXEVENTS, 1000);
+	int readyFds = epoll_wait(m_fd, events, MAXEVENTS, 100);
 	if (readyFds == -1)
 		std::cerr << "warning: epoll_wait() failed" << std::endl;
 	return readyFds;

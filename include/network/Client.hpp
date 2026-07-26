@@ -32,7 +32,8 @@ class Client : public AFd
     std::string _config;
     // HttpResponse _response;
 
-    int _receive_data();
+    Epoll::EventState _receive_data();
+    // Epoll::EventState _send_data();
     const ServerConfig *_get_config(const std::string &host);
 };
 

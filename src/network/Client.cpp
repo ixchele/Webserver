@@ -17,7 +17,7 @@ Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
   (void)_epoll;
 }
 
-int Client::_receive_data()
+Epoll::EventState Client::_receive_data()
 {
     char buffer[APP_BUFFER_SIZE + 1];
 
@@ -26,7 +26,7 @@ int Client::_receive_data()
     {
         // TODO: we must do something about logs
         std::cerr << "warning: recv() failed with " << bytes << " in " << std::endl;
-        return EVENT_ERROR;
+        return Epoll::EVENT_ERROR;
     }
     buffer[bytes] = '\0';
 
@@ -35,44 +35,52 @@ int Client::_receive_data()
     if (_request.getState() == HttpRequest::HEADERS_COMPLETE)
     {
         // _check_request();
+        _request.parse("");
     }
     if (_request.getState() == HttpRequest::BODY)
     {
         // _check_request();
+        _request.parse("");
     }
     if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
     {
-        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+        // _epoll.edit_fd(m_fd, this, EPOLLOUT);
     }
-
 
     std::cout << "Method: " << _request.getMethod() << std::endl;
     std::cout << "Path: " << _request.getUri().getPath() << std::endl;
     std::cout << "version: " << _request.getVersion() << std::endl;
 
-    return EVENT_FINISHED;
+    return Epoll::EVENT_FINISHED;
 }
+
+// Epoll::EventState Client::_send_data() {
+//    int bytes = send(m_fd, m_buffer.c_str(), m_buffer.size(), 0);
+//    m_buffer.erase(0, bytes);
+//    if (m_buffer.empty())
+//    {}
+// }
 
 int Client::handdle_event(uint32_t event)
 {
     // to do
     if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
     {
-      return EVENT_ERROR;
+      return Epoll::EVENT_ERROR;
     }
     if (event & EPOLLIN)
     {
         _receive_data();
         // m_requst.parse("vector");
-        return EVENT_FINISHED;
+        return Epoll::EVENT_FINISHED;
     }
     if (event & EPOLLOUT)
     {
         // m_response.response();
-        return EVENT_FINISHED;
+        return Epoll::EVENT_FINISHED;
     }
     else
-        return EVENT_FINISHED;
+        return Epoll::EVENT_FINISHED;
 }
 
 const ServerConfig *Client::_get_config(const std::string &host)
