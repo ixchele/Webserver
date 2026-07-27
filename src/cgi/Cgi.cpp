@@ -1,11 +1,10 @@
 #include <Cgi.hpp>
 
-
-Cgi::Cgi(/* args */)
+Cgi::Cgi(HttpRequest &request)
+  : _request(request)
 {
 }
 
 Cgi::~Cgi()
 {
 }
-

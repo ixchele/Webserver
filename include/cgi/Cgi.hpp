@@ -1,11 +1,16 @@
-#include <AFd.hpp>
+#include <CgiReadEnd.hpp>
+#include <CgiWriteEnd.hpp>
+#include <Request.hpp>
 
 class Cgi
 {
 public:
-  Cgi(/* args */);
+  CgiReadEnd *m_cgiReadEnd;
+  CgiWriteEnd *m_cgiWriteEnd;
+
+  Cgi(HttpRequest &request);
   ~Cgi();
 
 private:
-  /* data */
+  HttpRequest &_request;
 };
