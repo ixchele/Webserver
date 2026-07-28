@@ -95,8 +95,25 @@ Multiplexer::~Multiplexer()
 }
 
 void Multiplexer::_handle_timeout() {
+    if (_clientsList.empty())
+        return;
+    time_t now = time(NULL);
+    time_t timeout;
+    Client *client;
     while (true)
     {
-        
+        client = _clientsList.front();
+        if (client->m_state == Client::IDLE)
+            timeout = IDLE_CLIENT_TIMEOUT;
+        else
+            timeout = ACTIVE_CLIENT_TIMEOUT;
+        if (now - client->m_lastActivity > timeout)
+        {
+            if (ACTIVE)
+        }
+        else
+        {
+            break;
+        }
     }
 }

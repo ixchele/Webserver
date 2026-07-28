@@ -14,7 +14,7 @@
 class Client : public AFd
 {
   public:
-    enum e_state {RCEVING, SENDING};
+    enum e_state {IDLE, RCEVING, SENDING, TIMEDOUT};
 
     time_t m_lastActivity;
     e_state m_state;

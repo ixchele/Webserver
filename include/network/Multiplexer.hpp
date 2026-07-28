@@ -8,6 +8,9 @@
 # include <map>
 # include <list>
 
+# define IDLE_CLIENT_TIMEOUT 75
+# define ACTIVE_CLIENT_TIMEOUT 60
+
 using std::vector;
 
 //this Multiplexer will manage all servers from config file
