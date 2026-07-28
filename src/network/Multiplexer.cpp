@@ -47,6 +47,7 @@ void Multiplexer::events_loop()
                 std::cerr << e.what() << std::endl;
             }
         }
+        _handle_timeout();
     }
 }
 
@@ -90,5 +91,12 @@ Multiplexer::~Multiplexer()
             _epoll.del_fd(it->second->get_fd());
             delete it->second;
         }
+    }
+}
+
+void Multiplexer::_handle_timeout() {
+    while (true)
+    {
+        
     }
 }

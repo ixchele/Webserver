@@ -6,6 +6,7 @@
 #include <Epoll.hpp>
 #include <AFd.hpp>
 #include <vector>
+#include <ctime>
 
 #define APP_BUFFER_SIZE 8192 // 8Kb
 
@@ -15,6 +16,7 @@ class Client : public AFd
   public:
     enum e_state {RCEVING, SENDING};
 
+    time_t m_lastActivity;
     e_state m_state;
     std::string m_buffer;
     std::vector<const ServerConfig *> &m_configs;
