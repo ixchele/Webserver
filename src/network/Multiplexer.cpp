@@ -37,6 +37,11 @@ void Multiplexer::events_loop()
             {
                 if (fdObj->handle_event(events[i].events) != Epoll::EVENT_CONTINUE)
                 {
+                    if (fdObj->get_type() == AFd::CLIENT)
+                    {
+                        Client *client = static_cast<Client *>(fdObj);
+                        _clientsList.erase(client->m_it);
+                    }
                     _epoll.del_fd(fdObj->get_fd());
                     std::cerr << "Ended connection with " << fdObj->get_fd() << std::endl;
                     delete fdObj;
@@ -47,6 +52,7 @@ void Multiplexer::events_loop()
                     client->m_lastActivity = time(NULL);
                     _clientsList.pop_front();
                     _clientsList.push_back(client);
+                    client->m_it = --_clientsList.end();
                 }
             }
             catch (const std::exception &e)
@@ -123,7 +129,7 @@ void Multiplexer::_handle_timeout() {
             {
                 _clientsList.pop_front();
                 _epoll.del_fd(client->get_fd());
-                std::cerr << "Client " << client->get_fd() << "timed out" << std::endl;
+                std::cerr << "Client " << client->get_fd() << " timed out" << std::endl;
                 delete client;
             }
         }

@@ -111,6 +111,7 @@ int Server::handle_event(uint32_t event) {
         std::cerr << "Ended connection with " << clientFd << std::endl;
     }
     _clientsList.push_back(client);
+    client->m_it = --_clientsList.end();
     return Epoll::EVENT_CONTINUE;
 }
 
