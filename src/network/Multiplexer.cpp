@@ -109,13 +109,13 @@ Multiplexer::~Multiplexer()
 }
 
 void Multiplexer::_handle_timeout() {
-    if (_clientsList.empty())
-        return;
     time_t now = time(NULL);
     time_t timeout;
     Client *client;
     while (true)
     {
+        if (_clientsList.empty())
+            return;
         client = _clientsList.front();
         if (client->m_state == Client::IDLE)
             timeout = IDLE_CLIENT_TIMEOUT;
