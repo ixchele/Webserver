@@ -41,6 +41,13 @@ void Multiplexer::events_loop()
                     std::cerr << "Ended connection with " << fdObj->get_fd() << std::endl;
                     delete fdObj;
                 }
+                else if (fdObj->get_type() == AFd::CLIENT)
+                {
+                    Client *client = static_cast<Client *>(fdObj);
+                    client->m_lastActivity = time(NULL);
+                    _clientsList.pop_front();
+                    _clientsList.push_back(client);
+                }
             }
             catch (const std::exception &e)
             {
@@ -71,7 +78,8 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
                         v_configs[confs]->hosts[hosts],
                         v_configs[confs]->listen[ports],
                         v_configs[confs],
-                        _epoll
+                        _epoll,
+                        _clientsList
                     );
                 }
                 else
@@ -109,7 +117,7 @@ void Multiplexer::_handle_timeout() {
             timeout = ACTIVE_CLIENT_TIMEOUT;
         if (now - client->m_lastActivity > timeout)
         {
-            if (client->m_state == Client::RCEVING)
+            if (client->m_state == Client::RECEVING)
                 client->handle_timeout();
             else
             {

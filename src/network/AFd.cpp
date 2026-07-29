@@ -14,3 +14,8 @@ int AFd::get_fd() const
 {
     return this->m_fd;
 }
+
+AFd::e_type AFd::get_type() const
+{
+    return this->_type;
+}

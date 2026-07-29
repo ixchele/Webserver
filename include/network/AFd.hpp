@@ -15,6 +15,7 @@ class AFd
     AFd(int fd, e_type type);
 
     int get_fd() const;
+    e_type get_type() const;
 
     virtual int handle_event(uint32_t event) = 0;
 

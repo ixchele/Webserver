@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <list>
 
 using std::string;
 using std::vector;
@@ -32,7 +33,7 @@ public:
   sockaddr_in m_addr;
   const int m_port;
 
-  Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll);
+  Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll, std::list<Client *> &clientsList);
 
   virtual int handle_event(uint32_t event);
 
@@ -46,6 +47,7 @@ public:
 
 private:
   Epoll &_epoll;
+	std::list<Client *> &_clientsList;
 
   void creat_socket();
   void bind_address();

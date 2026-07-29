@@ -12,8 +12,13 @@
 #include <sstream>
 #include <cstdlib>
 
-Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll)
-	: AFd(-1, AFd::SERVER), m_key(key), m_ip(ip), m_port(port), _epoll(epoll)
+Server::Server(const std::string &key, const std::string &ip, short port, 
+    const ServerConfig *config, Epoll &epoll, 
+    std::list<Client *> &clientsList)
+
+	: AFd(-1, AFd::SERVER), m_key(key), 
+    m_ip(ip), m_port(port), _epoll(epoll), 
+    _clientsList(clientsList)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -105,6 +110,7 @@ int Server::handle_event(uint32_t event) {
         delete client;
         std::cerr << "Ended connection with " << clientFd << std::endl;
     }
+    _clientsList.push_back(client);
     return Epoll::EVENT_CONTINUE;
 }
 

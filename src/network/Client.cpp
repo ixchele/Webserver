@@ -71,6 +71,7 @@ int Client::handle_event(uint32_t event)
     }
     if (event & EPOLLIN)
     {
+        m_state = RECEVING;
         _receive_data();
         // m_requst.parse("vector");
         return Epoll::EVENT_FINISHED;
