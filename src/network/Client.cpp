@@ -62,7 +62,7 @@ Epoll::EventState Client::_receive_data()
 //    {}
 // }
 
-int Client::handdle_event(uint32_t event)
+int Client::handle_event(uint32_t event)
 {
     // to do
     if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
@@ -82,6 +82,11 @@ int Client::handdle_event(uint32_t event)
     }
     else
         return Epoll::EVENT_FINISHED;
+}
+
+void Client::handle_timeout() {
+  m_state = TIMEDOUT;
+  _epoll.edit_fd(m_fd, this, EPOLLOUT);
 }
 
 const ServerConfig *Client::_get_config(const std::string &host)

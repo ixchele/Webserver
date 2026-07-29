@@ -109,7 +109,12 @@ void Multiplexer::_handle_timeout() {
             timeout = ACTIVE_CLIENT_TIMEOUT;
         if (now - client->m_lastActivity > timeout)
         {
-            if (ACTIVE)
+            if (client->m_state == Client::RCEVING)
+                client->handle_timeout();
+            else
+            {
+                
+            }
         }
         else
         {
