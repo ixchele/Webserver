@@ -12,7 +12,7 @@ Client::~Client()
 }
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
-    : AFd(fd), m_lastActivity(time(NULL)), m_state(IDLE), 
+    : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(IDLE), 
     m_configs(configs), _epoll(epoll), _request(fd)//, _response(_request, fd)
 {
   (void)_epoll;

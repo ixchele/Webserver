@@ -8,8 +8,8 @@
 # include <map>
 # include <list>
 
-# define IDLE_CLIENT_TIMEOUT 75
-# define ACTIVE_CLIENT_TIMEOUT 60
+# define IDLE_CLIENT_TIMEOUT 7 // 75
+# define ACTIVE_CLIENT_TIMEOUT 2 // 60
 
 using std::vector;
 

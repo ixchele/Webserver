@@ -1,7 +1,7 @@
 #include <CgiWriteEnd.hpp>
 
 CgiWriteEnd::CgiWriteEnd(int fd)
-  : AFd(fd)
+  : AFd(fd, AFd::CGI_WRITE_END)
 {
 }
 

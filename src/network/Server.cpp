@@ -13,7 +13,7 @@
 #include <cstdlib>
 
 Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll)
-	: AFd(-1), m_key(key), m_ip(ip), m_port(port), _epoll(epoll)
+	: AFd(-1, AFd::SERVER), m_key(key), m_ip(ip), m_port(port), _epoll(epoll)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -84,20 +84,11 @@ int Server::accept_connection() {
 
 	// TODO : catch client infos
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
-    // if (clientFd != -1)
-    //     m_clients.insert(std::make_pair(clientFd, Client(clientFd, this->_epoll, m_configs)));
+    
     return clientFd;
 }
 
-// void Server::end_connection(int fd) {
-//     if (m_clients.find(fd) != m_clients.end())
-//     {
-//         _epoll.del_fd(fd);
-//         m_clients.erase(fd);
-//     }
-// }
-
-int Server::handdle_event(uint32_t event) {
+int Server::handle_event(uint32_t event) {
     (void)event;
     int clientFd = accept_connection();
     if (clientFd == -1)
@@ -105,7 +96,6 @@ int Server::handdle_event(uint32_t event) {
         std::cerr << "warning: accept4() failed on " << m_key << std::endl;
         return Epoll::EVENT_CONTINUE;
     }
-    // m_clients[clientFd] = new Client(clientFd, this, _epoll);
     std::cout << "Accepted " << clientFd << std::endl;
     Client *client = new Client(clientFd, _epoll, m_configs);
     if (_epoll.add_fd(clientFd, static_cast<AFd *>(client), EPOLLIN) != 0)

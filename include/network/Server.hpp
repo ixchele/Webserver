@@ -34,12 +34,11 @@ public:
 
   Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll);
 
-  virtual int handdle_event(uint32_t event);
+  virtual int handle_event(uint32_t event);
 
   void run();
   // void end_connection(int fd);
   void add_config(const ServerConfig *config);
-  const ServerConfig *get_config(const string &host) const;
 
   static string craft_key(const string &ip, int port);
 

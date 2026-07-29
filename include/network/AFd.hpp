@@ -11,16 +11,18 @@
 class AFd
 {
   public:
-    AFd(int fd);
+    enum e_type {SERVER, CLIENT, CGI_READ_END, CGI_WRITE_END};
+    AFd(int fd, e_type type);
 
     int get_fd() const;
 
-    virtual int handdle_event(uint32_t event) = 0;
+    virtual int handle_event(uint32_t event) = 0;
 
     virtual ~AFd();
 
   protected:
     int m_fd;
+    e_type _type;
 };
 
 #endif

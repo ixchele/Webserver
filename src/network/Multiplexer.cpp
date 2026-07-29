@@ -35,7 +35,7 @@ void Multiplexer::events_loop()
             std::cerr << "event came on " << fdObj->get_fd() << std::endl;
             try
             {
-                if (fdObj->handdle_event(events[i].events) != Epoll::EVENT_CONTINUE)
+                if (fdObj->handle_event(events[i].events) != Epoll::EVENT_CONTINUE)
                 {
                     _epoll.del_fd(fdObj->get_fd());
                     std::cerr << "Ended connection with " << fdObj->get_fd() << std::endl;
@@ -113,7 +113,10 @@ void Multiplexer::_handle_timeout() {
                 client->handle_timeout();
             else
             {
-                
+                _clientsList.pop_front();
+                _epoll.del_fd(client->get_fd());
+                std::cerr << "Client " << client->get_fd() << "timed out" << std::endl;
+                delete client;
             }
         }
         else

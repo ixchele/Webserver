@@ -1,7 +1,7 @@
 #include <CgiReadEnd.hpp>
 
 CgiReadEnd::CgiReadEnd(int fd)
-  : AFd(fd)
+  : AFd(fd, AFd::CGI_READ_END)
 {
 }
 
