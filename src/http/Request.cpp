@@ -67,8 +67,6 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 		return;
 	}
 
-	_uri = uri;
-
 	if (version != "HTTP/1.1") {
 		_state = ERROR;
 		_code = HttpStatus::HTTPVersionNotSupported; // NOTE : 505
@@ -129,8 +127,21 @@ void	HttpRequest::parse(const std::string &raw_data) {
 
 			else if (_state == HEADERS) {
 				if (line.empty()) {
-					_state = HEADERS_COMPLETE;
 					_buffer.erase(0, pos + 2);
+
+					bool	has_body = false;
+
+					if (_headers.find("transfer-encoding") != _headers.end() && 
+							_headers["transfer-encoding"] == "chunked") {
+						has_body = true;
+					} 
+					else if (_headers.find("content-length") != _headers.end()) {
+						has_body = true;
+						std::istringstream	iss(_headers["content-length"]);
+						iss >> _content_length;
+					}
+
+					_state = has_body ? HEADERS_COMPLETE : COMPLETE;
 					break;
 				}
 				else
