@@ -1,7 +1,7 @@
 #ifndef CLIENT_HPP
 # define CLIENT_HPP
 #include <ServerConfig.hpp>
-#include <Request.hpp>
+#include <HttpRequest.hpp>
 // #include <Response.hpp>
 #include <Epoll.hpp>
 #include <AFd.hpp>

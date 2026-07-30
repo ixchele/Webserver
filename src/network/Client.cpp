@@ -1,7 +1,7 @@
 #include <Client.hpp>
 #include <Epoll.hpp>
 // #include <Response.hpp>
-#include <Request.hpp>
+#include <HttpRequest.hpp>
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
