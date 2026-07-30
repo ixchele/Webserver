@@ -30,7 +30,7 @@ class HttpRequest {
 		ParseState			getState() const;
 		HttpStatus::Code	getErrorCode() const;
 		Method				getMethod() const;
-		const Uri		   &getUri() const;
+		const Uri			&getUri() const;
 		const std::string	&getVersion() const;
 		const std::string	&getTmpFilename() const;
 		size_t				getContentLength() const;

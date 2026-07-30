@@ -1,6 +1,6 @@
 #include "HttpStatus.hpp"
 #include "Uri.hpp"
-#include <Request.hpp>
+#include <HttpRequest.hpp>
 #include <cstddef>
 #include <sstream>
 #include <string>
@@ -54,7 +54,7 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	if (method_str == "GET") _method = HTTP_GET;
 	else if (method_str == "POST") _method = HTTP_POST;
 	else if (method_str == "DELETE") _method = HTTP_DELETE;
-	// else if (method_str == "HEAD") _method = HTTP_HEAD;
+
 	else {
 		_state = ERROR;
 		_code = HttpStatus::NotImplemented; // NOTE : 501
@@ -66,8 +66,6 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 		_code = HttpStatus::BadRequest; // NOTE : 400
 		return;
 	}
-
-	_uri = uri;
 
 	if (version != "HTTP/1.1") {
 		_state = ERROR;
@@ -129,8 +127,21 @@ void	HttpRequest::parse(const std::string &raw_data) {
 
 			else if (_state == HEADERS) {
 				if (line.empty()) {
-					_state = HEADERS_COMPLETE;
 					_buffer.erase(0, pos + 2);
+
+					bool	has_body = false;
+
+					if (_headers.find("transfer-encoding") != _headers.end() && 
+							_headers["transfer-encoding"] == "chunked") {
+						has_body = true;
+					} 
+					else if (_headers.find("content-length") != _headers.end()) {
+						has_body = true;
+						std::istringstream	iss(_headers["content-length"]);
+						iss >> _content_length;
+					}
+
+					_state = has_body ? HEADERS_COMPLETE : COMPLETE;
 					break;
 				}
 				else
