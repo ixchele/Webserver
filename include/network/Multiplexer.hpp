@@ -8,7 +8,9 @@
 # include <map>
 # include <list>
 
+# define KEEPALIVE_TIMEOUT 75
 # define IDLE_CLIENT_TIMEOUT 75
+# define HEADERS_TIMEOUT 60
 # define ACTIVE_CLIENT_TIMEOUT 60
 
 using std::vector;
