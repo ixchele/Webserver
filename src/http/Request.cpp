@@ -50,7 +50,6 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	if (method_str == "GET") _method = HTTP_GET;
 	else if (method_str == "POST") _method = HTTP_POST;
 	else if (method_str == "DELETE") _method = HTTP_DELETE;
-	else if (method_str == "HEAD") _method = HTTP_HEAD;
 	else {
 		_state = ERROR;
 		_code = HttpStatus::NotImplemented; // NOTE : 501
