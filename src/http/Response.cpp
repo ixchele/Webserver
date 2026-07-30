@@ -1,14 +1,16 @@
 #include <HttpStatus.hpp>
 #include <Response.hpp>
-#include <iostream>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <errno.h>
+#include <iostream>
 #include <sstream>
 #include <string>
 
 
-HttpResponse::HttpResponse(Client *client, HttpRequest *request)
-    : _client(client), _request(request), _bytesSent(0)
+HttpResponse::HttpResponse(HttpRequest &request, int clientFd)
+    : _request(request), _clientFd(clientFd),
+    _state(Building)
 {
 }
 
@@ -19,7 +21,7 @@ HttpResponse::~HttpResponse()
 void HttpResponse::_delete() {
     // To do: I must check the config
 
-    if (unlink(_request->getUri().c_str()) == -1)
+    if (unlink(_request.getUri().getPath().c_str()) == -1)
     {
         switch (errno)
         {
@@ -37,14 +39,9 @@ void HttpResponse::_delete() {
 }
 
 void HttpResponse::response() {
-    if (_request == NULL || _client == NULL)
-    {
-        std::cerr << "warning: response couldn't find client or request" << std::endl;
-        return ;
-    }
     if (_state == Building)
     {
-        switch (_request->getMethod())
+        switch (_request.getMethod())
         {
             case HTTP_DELETE: _delete(); break; 
             // case HTTP_GET: _get(); break; 
@@ -57,7 +54,6 @@ void HttpResponse::response() {
     if (_state == SendingHeaders)
     {
         _send_headers();
-        _state = SendingBody;
     }
     if (_state == SendingBody)
     {
@@ -68,12 +64,8 @@ void HttpResponse::response() {
 void HttpResponse::_build_headers() {
     std::stringstream ss;
     ss << _statusCode;
-    _buffer = "Http/1.1 " + ss.str() + _get_code_message(_statusCode) + "\r\n";
-    _buffer.append("Connection: close\r\n");
-}
-
-void HttpResponse::_send_headers() {
-    send(_client->get_fd(), _buffer.c_str(), _buffer.size(), 0);
+    m_buffer = "Http/1.1 " + _get_code_message(_statusCode) + ss.str() + "\r\n";
+    m_buffer.append("Connection: close\r\n");
 }
 
 std::string HttpResponse::_get_code_message(HttpStatus::Code code) {

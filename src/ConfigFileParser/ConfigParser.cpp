@@ -34,7 +34,7 @@ ConfigParser::ConfigParser(const TokenList &tokenList)
 	this->communDirectives["error_page"] = &ConfigParser::errorPageDir;
 	this->communDirectives["return"] = &ConfigParser::returnDir;
 
-	this->methodsAvailable["HEAD"] = HTTP_HEAD;
+	// this->methodsAvailable["HEAD"] = HTTP_HEAD;
 	this->methodsAvailable["GET"] = HTTP_GET;
 	this->methodsAvailable["POST"] = HTTP_POST;
 	this->methodsAvailable["DELETE"] = HTTP_DELETE;

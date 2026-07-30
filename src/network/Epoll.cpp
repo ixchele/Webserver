@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 #include <unistd.h>
+#include <string.h>
+#include <stdio.h>
 #include <sstream>
 
 Epoll::Epoll() {
@@ -19,10 +21,15 @@ Epoll::~Epoll() {
 
 int Epoll::add_fd(int fd, AFd *ptr, int events) {
 	epoll_event ev;
+	int ret;
 
 	ev.data.ptr = ptr;
 	ev.events = events;
-	return epoll_ctl(m_fd, EPOLL_CTL_ADD, fd, &ev);
+	ret = epoll_ctl(m_fd, EPOLL_CTL_ADD, fd, &ev);
+
+	if(ret != 0)
+		perror("Error from epoll_ctl()");
+	return ret;
 }
 
 int Epoll::edit_fd(int fd, AFd *ptr, int events) {
@@ -39,7 +46,7 @@ void Epoll::del_fd(int fd) {
 }
 
 int	Epoll::wait(epoll_event *events) {
-	int readyFds = epoll_wait(m_fd, events, MAXEVENTS, 1000);
+	int readyFds = epoll_wait(m_fd, events, MAXEVENTS, 100);
 	if (readyFds == -1)
 		std::cerr << "warning: epoll_wait() failed" << std::endl;
 	return readyFds;

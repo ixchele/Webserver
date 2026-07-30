@@ -34,7 +34,7 @@ int main(int ac, char **av)
 	try
 	{
 		Multiplexer multiplexer(v_configs);
-		std::map<std::string, Server *>::iterator it;
+		ServersMap::iterator it;
 		for (it = multiplexer.m_servers.begin(); it != multiplexer.m_servers.end(); ++it)
 		{
 			std::cout << "listen " << it->second->m_ip << ":" << it->second->m_port << std::endl;

@@ -12,8 +12,13 @@
 #include <sstream>
 #include <cstdlib>
 
-Server::Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll *epoll)
-	: AFd(-1), m_key(key), m_ip(ip), m_port(port), m_epoll(epoll)
+Server::Server(const std::string &key, const std::string &ip, short port, 
+    const ServerConfig *config, Epoll &epoll, 
+    std::list<Client *> &clientsList)
+
+	: AFd(-1, AFd::SERVER), m_key(key), 
+    m_ip(ip), m_port(port), _epoll(epoll), 
+    _clientsList(clientsList)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -43,22 +48,6 @@ void Server::add_config(const ServerConfig *config) {
     m_configs.push_back(config);
 }
 
-// FIX : replace for loop with find
-const ServerConfig *Server::get_config(const string &host) const {
-    for (size_t i = 0; i < m_configs.size(); i++)
-    {
-        for (size_t n = 0; n < m_configs[i]->names.size(); i++)
-        {
-            if (m_configs[i]->names[n] == host)
-            {
-                return m_configs[i];
-            }
-        }
-    }
-    throw std::runtime_error("Host name \"" + host + "\" is not found");
-    return m_configs[0];
-}
-
 void Server::run() {
     creat_socket();
     bind_address();
@@ -67,6 +56,7 @@ void Server::run() {
 
 void Server::creat_socket() {
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
+    std::cerr << m_fd << std::endl;
 	if (this->m_fd == -1)
 	{
 		throw std::runtime_error("error: socket() for " + m_key + " failed");
@@ -99,35 +89,30 @@ int Server::accept_connection() {
 
 	// TODO : catch client infos
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
-    if (clientFd != -1)
-        m_clients[clientFd] = new Client(clientFd, this, this->m_epoll);
+    
     return clientFd;
 }
 
-void Server::end_connection(int fd) {
-    if (m_clients.find(fd) != m_clients.end() && m_clients[fd] != NULL)
-    {
-        m_epoll->del_fd(fd);
-        delete m_clients[fd];
-        m_clients.erase(fd);
-    }
-}
-
-void Server::handdle_event(uint32_t event) {
+int Server::handle_event(uint32_t event) {
     (void)event;
     int clientFd = accept_connection();
     if (clientFd == -1)
     {
         std::cerr << "warning: accept4() failed on " << m_key << std::endl;
-        return ;
+        return Epoll::EVENT_CONTINUE;
     }
-    // m_clients[clientFd] = new Client(clientFd, this, m_epoll);
-    std::cout << "Accepted " << m_clients[clientFd]->get_fd() << std::endl;
-    if (m_epoll->add_fd(clientFd, static_cast<AFd *>(m_clients[clientFd]), EPOLLIN) != 0)
+    std::cout << "Accepted " << clientFd << std::endl;
+    Client *client = new Client(clientFd, _epoll, m_configs);
+    if (_epoll.add_fd(clientFd, static_cast<AFd *>(client), EPOLLIN) != 0)
     {
         std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << " for " << m_key << std::endl;
-        end_connection(clientFd);
+        _epoll.del_fd(clientFd);
+        delete client;
+        std::cerr << "Ended connection with " << clientFd << std::endl;
     }
+    _clientsList.push_back(client);
+    client->m_it = --_clientsList.end();
+    return Epoll::EVENT_CONTINUE;
 }
 
 string Server::craft_key(const string &ip, int port) {

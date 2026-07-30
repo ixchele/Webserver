@@ -9,7 +9,11 @@
 #include <cctype>
 
 HttpRequest::HttpRequest(int client_fd) 
-    : _client_fd(client_fd), _state(REQUEST_LINE), _content_length(0), _bytes_received(0) {}
+    : _client_fd(client_fd), _state(REQUEST_LINE), _content_length(0), _bytes_received(0)
+{
+	(void)_client_fd;
+	(void)_bytes_received;
+}
 
 HttpRequest::ParseState	HttpRequest::getState() const { return _state; }
 
@@ -50,6 +54,7 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	if (method_str == "GET") _method = HTTP_GET;
 	else if (method_str == "POST") _method = HTTP_POST;
 	else if (method_str == "DELETE") _method = HTTP_DELETE;
+
 	else {
 		_state = ERROR;
 		_code = HttpStatus::NotImplemented; // NOTE : 501

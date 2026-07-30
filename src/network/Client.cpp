@@ -1,53 +1,107 @@
-#include <Response.hpp>
 #include <Client.hpp>
-#include <Server.hpp>
 #include <Epoll.hpp>
-#include <unistd.h>
+// #include <Response.hpp>
+#include <Request.hpp>
 #include <iostream>
+#include <unistd.h>
+#include <sys/socket.h>
 
 Client::~Client()
 {
-  close(m_fd);
-  if (m_requst != NULL)
-    delete m_requst;
-  if (m_response != NULL)
-    delete m_response;
+    close(m_fd);
 }
 
-Client::Client(int fd, Server *server, Epoll *epoll)
-    : AFd(fd), m_server(server), m_epoll(epoll)
+Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
+    : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(IDLE), 
+    m_configs(configs), _epoll(epoll), _request(fd)//, _response(_request, fd)
 {
-  m_requst = new HttpRequest(m_fd);
-  m_response = new HttpResponse(this, m_requst);
+  (void)_epoll;
 }
 
-void Client::receive_data() {
+Epoll::EventState Client::_receive_data()
+{
     char buffer[APP_BUFFER_SIZE + 1];
 
-    ssize_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
-    if (bytes <= 0)
+    size_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
+    if (bytes == static_cast<size_t>(-1) || bytes == 0)
     {
-        std::cerr << "warning: read() failed with " << bytes << " in " << m_server->m_key << std::endl;
-        return;
+        // TODO: we must do something about logs
+        std::cerr << "warning: recv() failed with " << bytes << " in " << std::endl;
+        return Epoll::EVENT_ERROR;
     }
-    for (ssize_t i = 0; i < bytes; i++)
+    buffer[bytes] = '\0';
+
+    _request.parse(buffer);
+
+    if (_request.getState() == HttpRequest::HEADERS_COMPLETE)
     {
-      v_buffer.push_back(buffer[i]);
+        // _check_request();
+        _request.parse("");
     }
+    if (_request.getState() == HttpRequest::BODY)
+    {
+        // _check_request();
+        _request.parse("");
+    }
+    if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
+    {
+        // _epoll.edit_fd(m_fd, this, EPOLLOUT);
+    }
+
+    std::cout << "Method: " << _request.getMethod() << std::endl;
+    std::cout << "Path: " << _request.getUri().getPath() << std::endl;
+    std::cout << "version: " << _request.getVersion() << std::endl;
+
+    return Epoll::EVENT_FINISHED;
 }
 
-void Client::handdle_event(uint32_t event)
+// Epoll::EventState Client::_send_data() {
+//    int bytes = send(m_fd, m_buffer.c_str(), m_buffer.size(), 0);
+//    m_buffer.erase(0, bytes);
+//    if (m_buffer.empty())
+//    {}
+// }
+
+int Client::handle_event(uint32_t event)
 {
-  // to do
-  if (event == EPOLLIN)
-  {
-    receive_data();
-    m_requst->parse("vector");
-  }
-  else if (event == EPOLLOUT)
-  {
-    m_response->response();
-  }
-  else
-    m_server->end_connection(m_fd);
+    // to do
+    if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
+    {
+      return Epoll::EVENT_ERROR;
+    }
+    if (event & EPOLLIN)
+    {
+        m_state = RECEVING;
+        _receive_data();
+        // m_requst.parse("vector");
+        return Epoll::EVENT_FINISHED;
+    }
+    if (event & EPOLLOUT)
+    {
+        // m_response.response();
+        return Epoll::EVENT_FINISHED;
+    }
+    else
+        return Epoll::EVENT_FINISHED;
+}
+
+void Client::handle_timeout() {
+  m_state = TIMEDOUT;
+  _epoll.edit_fd(m_fd, this, EPOLLOUT);
+}
+
+const ServerConfig *Client::_get_config(const std::string &host)
+{
+    for (size_t i = 0; i < m_configs.size(); i++)
+    {
+        for (size_t n = 0; n < m_configs[i]->names.size(); n++)
+        {
+            if (m_configs[i]->names[n] == host)
+            {
+                return m_configs[i];
+            }
+        }
+    }
+    std::cerr << "warning: Client with fd " << m_fd << " will use the default config" << std::endl;
+    return m_configs[0];
 }

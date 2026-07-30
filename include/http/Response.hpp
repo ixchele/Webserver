@@ -2,7 +2,6 @@
 #define RESPONSE_HPP
 #include <HttpStatus.hpp>
 #include <Request.hpp>
-#include <Client.hpp>
 #include <fstream>
 #include <string>
 
@@ -16,18 +15,19 @@ class HttpResponse
         Complete
     };
 
-    HttpResponse(Client *client, HttpRequest *request);
+    std::string m_buffer;
+
+    HttpResponse(HttpRequest &request, int clientFd);
     ~HttpResponse();
 
     void response();
 
   private:
-    const Client *_client;
-    HttpRequest *_request;
+    HttpRequest &_request;
+    int _clientFd;
     State _state;
     int _bodyFile;
     HttpStatus::Code _statusCode;
-    std::string _buffer;
     size_t _bytesSent;
 
     std::string _get_code_message(HttpStatus::Code code);
