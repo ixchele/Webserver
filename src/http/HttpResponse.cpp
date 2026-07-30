@@ -1,5 +1,5 @@
 #include <HttpStatus.hpp>
-#include <Response.hpp>
+#include <HttpResponse.hpp>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <errno.h>

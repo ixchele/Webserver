@@ -1,6 +1,6 @@
 #include "HttpStatus.hpp"
 #include "Uri.hpp"
-#include <Request.hpp>
+#include <HttpRequest.hpp>
 #include <cstddef>
 #include <sstream>
 #include <string>
