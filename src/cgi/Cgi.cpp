@@ -15,7 +15,10 @@ Cgi::Cgi(HttpRequest &request)
     std::string::const_iterator strIt;
     for (strIt = HeadIt->first.begin(); strIt != HeadIt->first.end(); ++strIt)
     {
-      var += *strIt;
+      if (*strIt == '-')
+        var += '_';
+      else
+        var += ::toupper(*strIt);
     }
     var += '=';
     for (strIt = HeadIt->second.begin(); strIt != HeadIt->second.end(); ++strIt)
@@ -33,4 +36,8 @@ Cgi::~Cgi()
 
 int Cgi::get_pid(void) {
   return _pid;
+}
+
+int Cgi::execute() {
+
 }
