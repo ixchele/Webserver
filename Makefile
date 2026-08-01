@@ -14,14 +14,15 @@ INCLUDES := $(addprefix -I, $(INC_DIRS))
 CPPFLAGS = -Wall -Wextra -Werror -std=c++98 $(INCLUDES)
 LFLAGS =  $(CPPFLAGS)
 SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
-	  ./main.cpp \
-	  ./src/ConfigFileParser/ConfigStructures/CommonConfig.cpp \
-	  ./src/ConfigFileParser/ConfigStructures/LocationConfig.cpp \
-	  ./src/ConfigFileParser/ConfigStructures/ServerConfig.cpp \
-	  ./src/ConfigFileParser/ConfigParser.cpp \
+		./main.cpp \
+		./src/Logger/Logger.cpp  \
+		./src/ConfigFileParser/ConfigStructures/CommonConfig.cpp \
+		./src/ConfigFileParser/ConfigStructures/LocationConfig.cpp \
+		./src/ConfigFileParser/ConfigStructures/ServerConfig.cpp \
+		./src/ConfigFileParser/ConfigParser.cpp \
 		./src/network/AFd.cpp ./src/network/Server.cpp ./src/network/Client.cpp \
 		./src/network/Multiplexer.cpp ./src/network/Epoll.cpp \
-		./src/http/HttpRequest.cpp ./src/http/Uri.cpp #./src/http/Response.cpp
+		./src/http/HttpRequest.cpp ./src/http/Uri.cpp #./src/http/Response.cpp 
 
 OBJ = $(SRC:%.cpp=obj/%.o)
 

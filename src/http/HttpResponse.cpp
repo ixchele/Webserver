@@ -1,128 +1,69 @@
-#include <HttpStatus.hpp>
-#include <HttpResponse.hpp>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <errno.h>
-#include <iostream>
+#include "HttpResponse.hpp"
 #include <sstream>
-#include <string>
 
+HttpResponse::HttpResponse() 
+	: _status_code(HttpStatus::OK), _file_size(0), _has_file(false), _is_built(false) {}
 
-HttpResponse::HttpResponse(HttpRequest &request, int clientFd)
-    : _request(request), _clientFd(clientFd),
-    _state(Building)
-{
+HttpResponse::~HttpResponse() {
+	if (_file_stream.is_open())
+		_file_stream.close();
 }
 
-HttpResponse::~HttpResponse()
-{
+void    HttpResponse::setStatusCode(HttpStatus::Code code) { _status_code = code; }
+
+void    HttpResponse::setHeader(const std::string &key, const std::string &value) {
+	_headers[key] = value;
 }
 
-void HttpResponse::_delete() {
-    // To do: I must check the config
-
-    if (unlink(_request.getUri().getPath().c_str()) == -1)
-    {
-        switch (errno)
-        {
-            case ENOENT: _statusCode = HttpStatus::NotFound; break;
-            case EACCES: _statusCode = HttpStatus::Forbidden; break;
-            case EPERM: _statusCode = HttpStatus::Forbidden; break;
-            case EISDIR: _statusCode = HttpStatus::Forbidden; break;
-            default: _statusCode = HttpStatus::InternalServerError;
-        }
-    }
-    else
-    {
-        _statusCode = HttpStatus::NoContent;
-    }
+void    HttpResponse::setBody(const std::string &body_str) {
+	_body_string = body_str;
+	_has_file = false;
+	setHeader("Content-Length", _intToString(_body_string.length()));
 }
 
-void HttpResponse::response() {
-    if (_state == Building)
-    {
-        switch (_request.getMethod())
-        {
-            case HTTP_DELETE: _delete(); break; 
-            // case HTTP_GET: _get(); break; 
-            // case HTTP_POST: _post(); break; 
-            default: break;
-        }
-        _build_headers();
-        _state = SendingHeaders;
-    }
-    if (_state == SendingHeaders)
-    {
-        _send_headers();
-    }
-    if (_state == SendingBody)
-    {
-        _state = Complete;
-    }
+bool    HttpResponse::setFileBody(const std::string &filepath) {
+	_file_stream.open(filepath.c_str(), std::ios::binary);
+
+	if (!_file_stream.is_open())
+		return false;
+
+	_file_stream.seekg(0, std::ios::end);
+	_file_size = _file_stream.tellg();
+	_file_stream.seekg(0, std::ios::beg);
+
+	_has_file = true;
+	setHeader("Content-Length", _intToString(_file_size));
+
+	return true;
 }
 
-void HttpResponse::_build_headers() {
-    std::stringstream ss;
-    ss << _statusCode;
-    m_buffer = "Http/1.1 " + _get_code_message(_statusCode) + ss.str() + "\r\n";
-    m_buffer.append("Connection: close\r\n");
+void    HttpResponse::build() {
+	_header_buffer = _generateStatusLine() + "\r\n";
+
+	std::map<std::string, std::string>::const_iterator	it;
+	for (it = _headers.begin(); it != _headers.end(); ++it) {
+		_header_buffer += it->first + ": " + it->second + "\r\n";
+	}
+
+	_header_buffer += "\r\n";
+
+	if (!_has_file && !_body_string.empty()) {
+		_header_buffer += _body_string;
+	}
+
+	_is_built = true;
 }
 
-std::string HttpResponse::_get_code_message(HttpStatus::Code code) {
-    switch(code) {
-        // 1xx: Informational
-        case HttpStatus::Continue:                    return "Continue";
-        case HttpStatus::SwitchingProtocols:          return "Switching Protocols";
+const std::string    &HttpResponse::getHeaderBuffer() const { return _header_buffer; }
+bool                 HttpResponse::hasFile() const { return _has_file; }
+std::ifstream        &HttpResponse::getFileStream() { return _file_stream; }
 
-        // 2xx: Successful
-        case HttpStatus::OK:                          return "OK";
-        case HttpStatus::Created:                     return "Created";
-        case HttpStatus::Accepted:                    return "Accepted";
-        case HttpStatus::NonAuthoritativeInformation: return "Non-Authoritative Information";
-        case HttpStatus::NoContent:                   return "No Content";
-        case HttpStatus::ResetContent:                return "Reset Content";
-        case HttpStatus::PartialContent:              return "Partial Content";
+std::string    HttpResponse::_generateStatusLine() const {
+	return "HTTP/1.1 " + _intToString(_status_code) + " OK";
+}
 
-        // 3xx: Redirection
-        case HttpStatus::MultipleChoices:             return "Multiple Choices";
-        case HttpStatus::MovedPermanently:            return "Moved Permanently";
-        case HttpStatus::Found:                       return "Found";
-        case HttpStatus::SeeOther:                    return "See Other";
-        case HttpStatus::NotModified:                 return "Not Modified";
-        case HttpStatus::UseProxy:                    return "Use Proxy";
-        case HttpStatus::TemporaryRedirect:           return "Temporary Redirect";
-        case HttpStatus::PermanentRedirect:           return "Permanent Redirect";
-
-        // 4xx: Client Error
-        case HttpStatus::BadRequest:                  return "Bad Request";
-        case HttpStatus::Unauthorized:                return "Unauthorized";
-        case HttpStatus::PaymentRequired:             return "Payment Required";
-        case HttpStatus::Forbidden:                   return "Forbidden";
-        case HttpStatus::NotFound:                    return "Not Found";
-        case HttpStatus::MethodNotAllowed:            return "Method Not Allowed";
-        case HttpStatus::NotAcceptable:               return "Not Acceptable";
-        case HttpStatus::ProxyAuthenticationRequired: return "Proxy Authentication Required";
-        case HttpStatus::RequestTimeout:              return "Request Timeout";
-        case HttpStatus::Conflict:                    return "Conflict";
-        case HttpStatus::Gone:                        return "Gone";
-        case HttpStatus::LengthRequired:              return "Length Required";
-        case HttpStatus::PreconditionFailed:          return "Precondition Failed";
-        case HttpStatus::PayloadTooLarge:             return "Payload Too Large";
-        case HttpStatus::URITooLong:                  return "URI Too Long";
-        case HttpStatus::UnsupportedMediaType:        return "Unsupported Media Type";
-        case HttpStatus::RangeNotSatisfiable:         return "Range Not Satisfiable";
-        case HttpStatus::ExpectationFailed:           return "Expectation Failed";
-        case HttpStatus::UpgradeRequired:             return "Upgrade Required";
-
-        // 5xx: Server Error
-        case HttpStatus::InternalServerError:         return "Internal Server Error";
-        case HttpStatus::NotImplemented:              return "Not Implemented";
-        case HttpStatus::BadGateway:                  return "Bad Gateway";
-        case HttpStatus::ServiceUnavailable:          return "Service Unavailable";
-        case HttpStatus::GatewayTimeout:              return "Gateway Timeout";
-        case HttpStatus::HTTPVersionNotSupported:     return "HTTP Version Not Supported";
-
-        // Fallback
-        default:                                      return "Unknown Error";
-    }
+std::string    HttpResponse::_intToString(size_t value) const {
+	std::ostringstream    oss;
+	oss << value;
+	return oss.str();
 }

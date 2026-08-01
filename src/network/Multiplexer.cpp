@@ -1,3 +1,4 @@
+#include "Logger.hpp"
 #include <Multiplexer.hpp>
 #include <Epoll.hpp>
 #include <sys/epoll.h>
@@ -14,7 +15,7 @@ void Multiplexer::startup()
         if (_epoll.add_fd(it->second->get_fd(), it->second, EPOLLIN))
             throw std::runtime_error("failed to add the server " + it->second->m_key +
                                      " in the epoll instance");
-        std::cout << "added " << it->second->m_key << " as " << it->second->get_fd() << std::endl;
+        LOG_INFO << "added " << it->second->m_key << " as " << it->second->get_fd();
     }
     events_loop();
 }
@@ -32,7 +33,7 @@ void Multiplexer::events_loop()
         for (int i = 0; i < readyFds; i++)
         {
             fdObj = static_cast<AFd *>(events[i].data.ptr);
-            std::cerr << "event came on " << fdObj->get_fd() << std::endl;
+            LOG_INFO << "event came on " << fdObj->get_fd();
             try
             {
                 if (fdObj->handle_event(events[i].events) != Epoll::EVENT_CONTINUE)

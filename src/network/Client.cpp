@@ -1,10 +1,10 @@
 #include <Client.hpp>
 #include <Epoll.hpp>
 // #include <Response.hpp>
-#include <Request.hpp>
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <Logger.hpp>
 
 Client::~Client()
 {
@@ -25,8 +25,7 @@ Epoll::EventState Client::_receive_data()
     size_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
     if (bytes == static_cast<size_t>(-1) || bytes == 0)
     {
-        // TODO: we must do something about logs
-        std::cerr << "warning: recv() failed with " << bytes << " in " << std::endl;
+        LOG_WARN << "recv() failed with " << bytes << " in ";
         return Epoll::EVENT_ERROR;
     }
     buffer[bytes] = '\0';

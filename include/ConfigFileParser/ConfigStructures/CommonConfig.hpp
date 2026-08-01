@@ -18,5 +18,5 @@ struct	CommonConfig {
 	virtual	~CommonConfig(void);
 
 	void	resetConf(void);
-	virtual std::string str(const std::string& indent = "  ") const;
+	virtual std::string	str(const std::string& indent = "  ") const;
 };
