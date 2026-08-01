@@ -3,6 +3,7 @@
 // #include <vector>
 #include "ServerConfig.hpp"
 #include <ConfigParser.hpp>
+#include <Logger.hpp>
 #include <exception>
 #include <iostream>
 #include <ostream>
@@ -37,7 +38,7 @@ int main(int ac, char **av)
 		ServersMap::iterator it;
 		for (it = multiplexer.m_servers.begin(); it != multiplexer.m_servers.end(); ++it)
 		{
-			std::cout << "listen " << it->second->m_ip << ":" << it->second->m_port << std::endl;
+			LOG_INFO << "server " << it->second->m_key << " is running";
 		}
 		multiplexer.startup();
 	}

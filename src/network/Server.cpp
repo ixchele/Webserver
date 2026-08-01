@@ -1,4 +1,5 @@
 #include <Server.hpp>
+#include <Logger.hpp>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -56,7 +57,6 @@ void Server::run() {
 
 void Server::creat_socket() {
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
-    std::cerr << m_fd << std::endl;
 	if (this->m_fd == -1)
 	{
 		throw std::runtime_error("error: socket() for " + m_key + " failed");
@@ -98,17 +98,17 @@ int Server::handle_event(uint32_t event) {
     int clientFd = accept_connection();
     if (clientFd == -1)
     {
-        std::cerr << "warning: accept4() failed on " << m_key << std::endl;
+        LOG_WARN << "accept4() failed on " << m_key;
         return Epoll::EVENT_CONTINUE;
     }
-    std::cout << "Accepted " << clientFd << std::endl;
+    LOG_INFO << "Accepted a client as fd " << clientFd;
     Client *client = new Client(clientFd, _epoll, m_configs);
     if (_epoll.add_fd(clientFd, static_cast<AFd *>(client), EPOLLIN) != 0)
     {
-        std::cerr << "warning: epoll_ctl() failed to add fd " << clientFd << " for " << m_key << std::endl;
+        LOG_WARN << "epoll_ctl() failed to add fd " << clientFd << " for " << m_key;
         _epoll.del_fd(clientFd);
         delete client;
-        std::cerr << "Ended connection with " << clientFd << std::endl;
+        LOG_INFO << "Ended connection with client on fd " << clientFd;
     }
     _clientsList.push_back(client);
     client->m_it = --_clientsList.end();

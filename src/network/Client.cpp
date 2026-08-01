@@ -1,7 +1,8 @@
+#include <HttpRequest.hpp>
 #include <Client.hpp>
+#include <Logger.hpp>
 #include <Epoll.hpp>
 // #include <Response.hpp>
-#include <HttpRequest.hpp>
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -26,7 +27,7 @@ Epoll::EventState Client::_receive_data()
     if (bytes == static_cast<size_t>(-1) || bytes == 0)
     {
         // TODO: we must do something about logs
-        std::cerr << "warning: recv() failed with " << bytes << " in " << std::endl;
+        LOG_WARN << "recv() failed with " << bytes << " on client with fd " << m_fd;
         return Epoll::EVENT_ERROR;
     }
     buffer[bytes] = '\0';
@@ -48,9 +49,11 @@ Epoll::EventState Client::_receive_data()
         // _epoll.edit_fd(m_fd, this, EPOLLOUT);
     }
 
-    std::cout << "Method: " << _request.getMethod() << std::endl;
-    std::cout << "Path: " << _request.getUri().getPath() << std::endl;
-    std::cout << "version: " << _request.getVersion() << std::endl;
+    
+    LOG_DEBUG << "The Request of client on fd " << m_fd << ":" \
+    << "\nMethod: " << _request.getMethod() \
+     << "\nPath: " << _request.getUri().getPath() \
+     << "\nversion: " << _request.getVersion();
 
     return Epoll::EVENT_FINISHED;
 }
@@ -102,6 +105,6 @@ const ServerConfig *Client::_get_config(const std::string &host)
             }
         }
     }
-    std::cerr << "warning: Client with fd " << m_fd << " will use the default config" << std::endl;
+    LOG_INFO << "Client with fd " << m_fd << " will use the default config";
     return m_configs[0];
 }

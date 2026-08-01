@@ -1,4 +1,5 @@
 #include <Multiplexer.hpp>
+#include <Logger.hpp>
 #include <Epoll.hpp>
 #include <sys/epoll.h>
 #include <string.h>
@@ -14,7 +15,7 @@ void Multiplexer::startup()
         if (_epoll.add_fd(it->second->get_fd(), it->second, EPOLLIN))
             throw std::runtime_error("failed to add the server " + it->second->m_key +
                                      " in the epoll instance");
-        std::cout << "added " << it->second->m_key << " as " << it->second->get_fd() << std::endl;
+        LOG_INFO << it->second->m_key << " is added to epoll with fd " << it->second->get_fd();
     }
     events_loop();
 }
@@ -32,7 +33,7 @@ void Multiplexer::events_loop()
         for (int i = 0; i < readyFds; i++)
         {
             fdObj = static_cast<AFd *>(events[i].data.ptr);
-            std::cerr << "event came on " << fdObj->get_fd() << std::endl;
+            LOG_INFO << "event came on fd " << fdObj->get_fd();
             try
             {
                 if (fdObj->handle_event(events[i].events) != Epoll::EVENT_CONTINUE)
@@ -43,7 +44,7 @@ void Multiplexer::events_loop()
                         _clientsList.erase(client->m_it);
                     }
                     _epoll.del_fd(fdObj->get_fd());
-                    std::cerr << "Ended connection with " << fdObj->get_fd() << std::endl;
+                    LOG_INFO << "Ended connection with the client on fd " << fdObj->get_fd();
                     delete fdObj;
                 }
                 else if (fdObj->get_type() == AFd::CLIENT)
@@ -74,7 +75,7 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
             for (size_t ports = 0; ports < v_configs[confs]->listen.size(); ports++)
             {
                 key = Server::craft_key(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports]);
-                std::cout << "key: " << key << std::endl;
+                LOG_DEBUG << "crafted key: " << key;
 
                 ServersMap::iterator it = m_servers.find(key);
                 if (it == m_servers.end())
@@ -129,7 +130,7 @@ void Multiplexer::_handle_timeout() {
             {
                 _clientsList.pop_front();
                 _epoll.del_fd(client->get_fd());
-                std::cerr << "Client " << client->get_fd() << " timed out" << std::endl;
+                LOG_INFO << "Client with fd " << client->get_fd() << " timed out";
                 delete client;
             }
         }
