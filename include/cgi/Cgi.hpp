@@ -1,5 +1,5 @@
-#include <CgiReadEnd.hpp>
-#include <CgiWriteEnd.hpp>
+#include <CgiOutput.hpp>
+#include <CgiInput.hpp>
 #include <HttpRequest.hpp>
 #include <vector>
 #include <string>
@@ -7,8 +7,8 @@
 class Cgi
 {
 public:
-  CgiReadEnd *m_cgiReadEnd;
-  CgiWriteEnd *m_cgiWriteEnd;
+  CgiOutput *m_cgiOutput;
+  CgiInput *m_cgiInput;
 
   Cgi(HttpRequest &request);
   ~Cgi();

@@ -1,13 +1,14 @@
 #include <AFd.hpp>
 
-class CgiReadEnd : public AFd
+class CgiInput : public AFd
 {
 public:
-  CgiReadEnd(int fd);
-  ~CgiReadEnd();
-
+  CgiInput(int fd);
+  ~CgiInput();
+  
   virtual int handdle_event(uint32_t event);
 
 private:
   /* data */
 };
+
