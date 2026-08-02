@@ -6,7 +6,7 @@ public:
   CgiOutput(int fd);
   ~CgiOutput();
 
-  virtual int handdle_event(uint32_t event);
+  virtual int handle_event(uint32_t event);
 
 private:
   /* data */

@@ -1,4 +1,5 @@
 #include <CgiOutput.hpp>
+#include <unistd.h>
 
 CgiOutput::CgiOutput(int fd)
   : AFd(fd, AFd::CGI_READ_END)
@@ -7,8 +8,9 @@ CgiOutput::CgiOutput(int fd)
 
 CgiOutput::~CgiOutput()
 {
+  close(m_fd);
 }
 
-int CgiOutput::handdle_event(uint32_t event) {
-
+int CgiOutput::handle_event(uint32_t event) {
+  (void)event;
 }

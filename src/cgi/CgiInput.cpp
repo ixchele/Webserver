@@ -1,4 +1,5 @@
 #include <CgiInput.hpp>
+#include <unistd.h>
 
 CgiInput::CgiInput(int fd)
   : AFd(fd, AFd::CGI_WRITE_END)
@@ -7,8 +8,9 @@ CgiInput::CgiInput(int fd)
 
 CgiInput::~CgiInput()
 {
+  close(m_fd);
 }
 
-int CgiInput::handdle_event(uint32_t event) {
-
+int CgiInput::handle_event(uint32_t event) {
+  (void)event;
 }

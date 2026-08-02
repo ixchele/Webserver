@@ -16,12 +16,15 @@ public:
   int get_pid(void);
 
   int execute();
+  int waiter();
 
 private:
   HttpRequest &_request;
   pid_t _pid;
-  int readPipe[2];
-  int writePipe[2];
+  int _status;
+  int _inputPipe[2];
+  int _outputPipe[2];
   std::vector <std::string> _env;
   std::vector <const char *> _cenv;
+  std::vector <const char *> _cargv;
 };
