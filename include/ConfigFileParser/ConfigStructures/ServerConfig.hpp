@@ -13,6 +13,7 @@ struct	ServerConfig : public CommonConfig {
 	~ServerConfig(void);
 
 	void	resetConf(void);
+	const CommonConfig	*matchRoute(const std::string &uri) const;
 	virtual std::string str(const std::string& indent = "") const;
 	void	applyInheritance();
 };
