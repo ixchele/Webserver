@@ -23,9 +23,9 @@ ConfigParser::ConfigParser(const TokenList &tokenList)
 	this->serverDirectives["server_name"] = &ConfigParser::nameDir;
 	this->serverDirectives["location"] = &ConfigParser::locationBlock;
 
-	this->locationDirectives["methods"] = &ConfigParser::methodsDir;
 	this->locationDirectives["upload_path"] = &ConfigParser::uploadDir;
 
+	this->communDirectives["methods"] = &ConfigParser::methodsDir;
 	this->communDirectives["root"] = &ConfigParser::rootDir;
 	this->communDirectives["index"] = &ConfigParser::indexDir;
 	this->communDirectives["autoindex"] = &ConfigParser::autoindexDir;
@@ -34,7 +34,6 @@ ConfigParser::ConfigParser(const TokenList &tokenList)
 	this->communDirectives["error_page"] = &ConfigParser::errorPageDir;
 	this->communDirectives["return"] = &ConfigParser::returnDir;
 
-	// this->methodsAvailable["HEAD"] = HTTP_HEAD;
 	this->methodsAvailable["GET"] = HTTP_GET;
 	this->methodsAvailable["POST"] = HTTP_POST;
 	this->methodsAvailable["DELETE"] = HTTP_DELETE;
@@ -86,7 +85,7 @@ void	ConfigParser::methodsDir() {
 		consume();
 	}
 
-	this->tmpLocation.methods = methods;
+	this->currentBlock->methods = methods;
 
 	consume(";");
 }
