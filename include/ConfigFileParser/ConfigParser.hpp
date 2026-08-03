@@ -1,7 +1,7 @@
 #pragma once
 
-#include "CommonConfig.hpp"
-#include "LocationConfig.hpp"
+#include <CommonConfig.hpp>
+#include <LocationConfig.hpp>
 #include <ServerConfig.hpp>
 #include <Token.hpp>
 #include <deque>

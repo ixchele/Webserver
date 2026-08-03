@@ -1,7 +1,7 @@
 #ifndef HTTPRESPONSE_HPP
 #define HTTPRESPONSE_HPP
 
-#include "HttpStatus.hpp"
+#include <HttpStatus.hpp>
 #include <string>
 #include <map>
 #include <fstream>
