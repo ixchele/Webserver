@@ -1,4 +1,3 @@
-#include <CgiOutput.hpp>
 #include <Logger.hpp>
 #include <Cgi.hpp>
 #include <sys/wait.h>
@@ -9,46 +8,21 @@
 #include <map>
 
 Cgi::Cgi(HttpRequest &request)
-  : _request(request), _pid(-1), _status(0)
+  : AFd(-1, AFd::CGI), _request(request), _pid(-1), _status(0)
 {
-  std::map<std::string, std::string>::const_iterator HeadIt;
-  std::string var;
-
-  for (HeadIt = request.getHeaders().begin(); HeadIt != request.getHeaders().end(); ++HeadIt)
+  _set_env();
+  if (pipe(_outputPipe) == -1)
   {
-    var.clear();
-    std::string::const_iterator strIt;
-    for (strIt = HeadIt->first.begin(); strIt != HeadIt->first.end(); ++strIt)
-    {
-      if (*strIt == '-')
-        var += '_';
-      else
-        var += ::toupper(*strIt);
-    }
-    var += '=';
-    for (strIt = HeadIt->second.begin(); strIt != HeadIt->second.end(); ++strIt)
-    {
-      var += *strIt;
-    }
-    _env.push_back(var);
-    _cenv.push_back(var.c_str());
+    LOG_ERROR << "pipe() -> " << strerror(errno);
   }
-  _cenv.push_back(NULL);
-  pipe(_outputPipe);
-  m_cgiOutput = new CgiOutput(_outputPipe[0]);
   if (request.getMethod() == HttpMethod::HTTP_POST)
   {
-    pipe(_inputPipe);
-    m_cgiInput = new CgiInput(_inputPipe[1]);
+    
   }
 }
 
 Cgi::~Cgi()
 {
-  if (m_cgiInput != NULL)
-    delete m_cgiInput;
-  if (m_cgiOutput != NULL)
-    delete m_cgiOutput;
 }
 
 int Cgi::get_pid(void) {
@@ -65,21 +39,14 @@ int Cgi::execute() {
 
   if (_pid == 0)
   {
-    delete m_cgiOutput;
-    if (m_cgiInput)
-      delete m_cgiInput;
     dup2(_outputPipe[1], 1);
-    if (m_cgiInput != NULL)
-      dup2(m_cgiInput->get_fd(), 0);
-    if (execve(_request.getUri().getPath().c_str(), (char **)(&_cargv[0]), (char **)(&_cenv[0])) == -1)
+    if (execve(_request.getUri().getPath().c_str(), (char **)(&_cargv[0]), environ) == -1)
     {
       LOG_ERROR << "execve() " << strerror(errno);
       exit(1);
     }
   }
   close (_outputPipe[1]);
-  if (m_cgiInput)
-    close (_inputPipe[0]);
 }
 
 int Cgi::waiter() {
@@ -101,4 +68,51 @@ int Cgi::waiter() {
   {
     return ret;
   }
+}
+
+Epoll::EventState Cgi::handle_event(uint32_t event) {
+  if (event & EPOLLIN)
+  {
+    char cbuffer[PIPE_BUFFER_SIZE + 1];
+    int bytes = recv(m_fd, cbuffer,PIPE_BUFFER_SIZE, 0);
+    if (bytes == 0)
+    {
+      LOG_WARN << "recv() from fd " << m_fd << " returnred " << bytes;
+      return Epoll::EVENT_ERROR;
+    }
+    else if (bytes == -1)
+    {
+      LOG_ERROR << "recv() from fd " << m_fd << " returnred " << bytes;
+      return Epoll::EVENT_ERROR;
+    }
+    _buffer += cbuffer;
+    LOG_DEBUG << "Cgi with fd " << m_fd << " wrote:\n" << _buffer;
+  }
+  return Epoll::EVENT_FINISHED;
+}
+
+void Cgi::_set_env() {
+  std::map<std::string, std::string>::const_iterator HeadIt;
+  std::string var;
+
+  for (HeadIt = _request.getHeaders().begin(); HeadIt != _request.getHeaders().end(); ++HeadIt)
+  {
+    var.clear();
+    std::string::const_iterator strIt;
+    for (strIt = HeadIt->first.begin(); strIt != HeadIt->first.end(); ++strIt)
+    {
+      if (*strIt == '-')
+        var += '_';
+      else
+        var += ::toupper(*strIt);
+    }
+    var += '=';
+    for (strIt = HeadIt->second.begin(); strIt != HeadIt->second.end(); ++strIt)
+    {
+      var += *strIt;
+    }
+    _env.push_back(var);
+    _cenv.push_back(var.c_str());
+  }
+  _cenv.push_back(NULL);
 }

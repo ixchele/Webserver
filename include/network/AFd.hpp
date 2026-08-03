@@ -1,29 +1,30 @@
 #ifndef AFD_HPP
 # define AFD_HPP
+# include <Epoll.hpp>
 # include <ServerConfig.hpp>
 # include <netinet/in.h>
-# include <string>
 # include <sys/socket.h>
-# include <vector>
-# include <exception>
 # include <sys/epoll.h>
+# include <exception>
+# include <string>
+# include <vector>
 
 class AFd
 {
   public:
-    enum e_type {SERVER, CLIENT, CGI_READ_END, CGI_WRITE_END};
-    AFd(int fd, e_type type);
+    enum Type {SERVER, CLIENT, CGI};
+    AFd(int fd, Type type);
 
     int get_fd() const;
-    e_type get_type() const;
+    Type get_type() const;
 
-    virtual int handle_event(uint32_t event) = 0;
+    virtual Epoll::EventState handle_event(uint32_t event) = 0;
 
     virtual ~AFd();
 
   protected:
     int m_fd;
-    e_type _type;
+    Type _type;
 };
 
 #endif

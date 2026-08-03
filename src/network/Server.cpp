@@ -93,7 +93,7 @@ int Server::accept_connection() {
     return clientFd;
 }
 
-int Server::handle_event(uint32_t event) {
+Epoll::EventState Server::handle_event(uint32_t event) {
     (void)event;
     int clientFd = accept_connection();
     if (clientFd == -1)

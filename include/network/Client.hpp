@@ -25,7 +25,7 @@ class Client : public AFd
 
     Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs);
 
-    virtual int handle_event(uint32_t event);
+    virtual Epoll::EventState handle_event(uint32_t event);
     void handle_timeout();
 
     virtual ~Client();

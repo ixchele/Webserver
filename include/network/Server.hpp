@@ -35,7 +35,7 @@ public:
 
   Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll, std::list<Client *> &clientsList);
 
-  virtual int handle_event(uint32_t event);
+  virtual Epoll::EventState handle_event(uint32_t event);
 
   void run();
   // void end_connection(int fd);

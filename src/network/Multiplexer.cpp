@@ -1,11 +1,11 @@
-#include <Multiplexer.hpp>
-#include <Logger.hpp>
 #include <Epoll.hpp>
-#include <sys/epoll.h>
-#include <string.h>
-#include <stdexcept>
+#include <Logger.hpp>
+#include <Multiplexer.hpp>
 #include <iostream>
 #include <map>
+#include <stdexcept>
+#include <string.h>
+#include <sys/epoll.h>
 
 void Multiplexer::startup()
 {
@@ -13,8 +13,7 @@ void Multiplexer::startup()
     for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
     {
         if (_epoll.add_fd(it->second->get_fd(), it->second, EPOLLIN))
-            throw std::runtime_error("failed to add the server " + it->second->m_key +
-                                     " in the epoll instance");
+            throw std::runtime_error("failed to add the server " + it->second->m_key + " in the epoll instance");
         LOG_INFO << it->second->m_key << " is added to epoll with fd " << it->second->get_fd();
     }
     events_loop();
@@ -29,36 +28,29 @@ void Multiplexer::events_loop()
     {
         epoll_event events[MAXEVENTS];
         readyFds = _epoll.wait(events);
-            
+
         for (int i = 0; i < readyFds; i++)
         {
             fdObj = static_cast<AFd *>(events[i].data.ptr);
             LOG_INFO << "event came on fd " << fdObj->get_fd();
-            try
+            if (fdObj->handle_event(events[i].events) != Epoll::EVENT_CONTINUE)
             {
-                if (fdObj->handle_event(events[i].events) != Epoll::EVENT_CONTINUE)
-                {
-                    if (fdObj->get_type() == AFd::CLIENT)
-                    {
-                        Client *client = static_cast<Client *>(fdObj);
-                        _clientsList.erase(client->m_it);
-                    }
-                    _epoll.del_fd(fdObj->get_fd());
-                    LOG_INFO << "Ended connection with the client on fd " << fdObj->get_fd();
-                    delete fdObj;
-                }
-                else if (fdObj->get_type() == AFd::CLIENT)
+                if (fdObj->get_type() == AFd::CLIENT)
                 {
                     Client *client = static_cast<Client *>(fdObj);
-                    client->m_lastActivity = time(NULL);
-                    _clientsList.pop_front();
-                    _clientsList.push_back(client);
-                    client->m_it = --_clientsList.end();
+                    _clientsList.erase(client->m_it);
                 }
+                _epoll.del_fd(fdObj->get_fd());
+                LOG_INFO << "Ended connection with the client on fd " << fdObj->get_fd();
+                delete fdObj;
             }
-            catch (const std::exception &e)
+            else if (fdObj->get_type() == AFd::CLIENT)
             {
-                std::cerr << e.what() << std::endl;
+                Client *client = static_cast<Client *>(fdObj);
+                client->m_lastActivity = time(NULL);
+                _clientsList.pop_front();
+                _clientsList.push_back(client);
+                client->m_it = --_clientsList.end();
             }
         }
         _handle_timeout();
@@ -80,14 +72,9 @@ Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
                 ServersMap::iterator it = m_servers.find(key);
                 if (it == m_servers.end())
                 {
-                    this->m_servers[key] = new Server(
-                        key, 
-                        v_configs[confs]->hosts[hosts],
-                        v_configs[confs]->listen[ports],
-                        v_configs[confs],
-                        _epoll,
-                        _clientsList
-                    );
+                    this->m_servers[key] =
+                        new Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports],
+                                   v_configs[confs], _epoll, _clientsList);
                 }
                 else
                     it->second->m_configs.push_back(v_configs[confs]);
@@ -109,7 +96,8 @@ Multiplexer::~Multiplexer()
     }
 }
 
-void Multiplexer::_handle_timeout() {
+void Multiplexer::_handle_timeout()
+{
     time_t now = time(NULL);
     time_t timeout;
     Client *client;

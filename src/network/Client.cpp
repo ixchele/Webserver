@@ -65,7 +65,7 @@ Epoll::EventState Client::_receive_data()
 //    {}
 // }
 
-int Client::handle_event(uint32_t event)
+Epoll::EventState Client::handle_event(uint32_t event)
 {
     // to do
     if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
