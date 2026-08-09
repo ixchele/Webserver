@@ -1,6 +1,7 @@
 // #include <ConfigFile.hpp>
 // #include <ConfigFileParser.template.hpp>
 // #include <vector>
+#include "Logger.hpp"
 #include "ServerConfig.hpp"
 #include <ConfigParser.hpp>
 #include <Logger.hpp>
@@ -16,6 +17,8 @@ int main(int ac, char **av)
 {
 	if (ac != 2)
 		return 1;
+	Logger::getInstance().setLogFile("/tmp/Webserv.log");
+
 	TokenList tokenList = tokenizer(av[1]);
 	ConfigParser lexer(tokenList);
 	std::vector<ServerConfig *> v_configs;

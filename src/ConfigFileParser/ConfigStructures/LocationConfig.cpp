@@ -4,7 +4,7 @@
 #include <sstream>
 
 LocationConfig::LocationConfig(void) 
-	: path(""), methods(HTTP_GET), upload("") {
+	: path(""), upload("") {
 	// pass
 }
 

@@ -1,4 +1,4 @@
-#include "ConfigParser.hpp"
+#include <ConfigParser.hpp>
 #include <ServerConfig.hpp>
 #include <LocationConfig.hpp>
 #include <cstddef>
@@ -57,6 +57,27 @@ void    ServerConfig::applyInheritance() {
 		validateDirectives(*location);
 	}
 
+}
+
+const CommonConfig    *ServerConfig::matchRoute(const std::string &uri) const {
+	const LocationConfig	*best_match = NULL;
+	size_t					longest_match_len = 0;
+
+	for (size_t i = 0; i < locations.size(); ++i) {
+		const std::string	&loc_path = locations[i].path;
+
+		if (uri.find(loc_path) == 0) {
+			if (loc_path.length() > longest_match_len) {
+				longest_match_len = loc_path.length();
+				best_match = &locations[i];
+			}
+		}
+	}
+
+	if (best_match != NULL)
+		return best_match;
+
+	return this;
 }
 
 std::string ServerConfig::str(const std::string& indent) const {

@@ -1,41 +1,37 @@
-#ifndef RESPONSE_HPP
-#define RESPONSE_HPP
-#include <HttpStatus.hpp>
-#include <HttpRequest.hpp>
-#include <fstream>
+#pragma once
+
+#include "HttpStatus.hpp"
 #include <string>
+#include <map>
+#include <fstream>
 
-class HttpResponse
-{
-  public:
-    enum State {
-        Building,
-        SendingHeaders,
-        SendingBody,
-        Complete
-    };
+class HttpResponse {
+	public:
+		HttpResponse(void);
+		~HttpResponse(void);
 
-    std::string m_buffer;
+		void	setStatusCode(HttpStatus::Code code);
+		void	setHeader(const std::string &key, const std::string &value);
 
-    HttpResponse(HttpRequest &request, int clientFd);
-    ~HttpResponse();
+		void	setBody(const std::string &body_str);
+		bool	setFileBody(const std::string &filepath);
 
-    void response();
+		void	build(void);
 
-  private:
-    HttpRequest &_request;
-    int _clientFd;
-    State _state;
-    int _bodyFile;
-    HttpStatus::Code _statusCode;
-    size_t _bytesSent;
+		const std::string	&getHeaderBuffer(void) const;
+		bool				hasFile(void) const;
+		std::ifstream		&getFileStream(void);
 
-    std::string _get_code_message(HttpStatus::Code code);
-    // void _get();
-    // void _post();
-    void _delete();
-    void _build_headers();
-    void _send_headers();
+	private:
+		HttpStatus::Code					_status_code;
+		std::map<std::string, std::string>	_headers;
+
+		std::string	_body_string;
+		std::string	_header_buffer;
+
+		std::ifstream	_file_stream;
+		bool			_has_file;
+
+		std::string	_generateStatusLine(void) const;
+		std::string	_intToString(size_t value) const;
 };
-
-#endif

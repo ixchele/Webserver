@@ -13,8 +13,9 @@ void Multiplexer::startup()
     for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
     {
         if (_epoll.add_fd(it->second->get_fd(), it->second, EPOLLIN))
-            throw std::runtime_error("failed to add the server " + it->second->m_key + " in the epoll instance");
-        LOG_INFO << it->second->m_key << " is added to epoll with fd " << it->second->get_fd();
+            throw std::runtime_error("failed to add the server " + it->second->m_key +
+                                     " in the epoll instance");
+        LOG_INFO << "added " << it->second->m_key << " as " << it->second->get_fd();
     }
     events_loop();
 }

@@ -1,9 +1,10 @@
 #ifndef EPOLL_HPP
 # define EPOLL_HPP
 # include <sys/epoll.h>
-# include <AFd.hpp>
 
 # define MAXEVENTS 64
+
+class AFd;
 
 class Epoll
 {
