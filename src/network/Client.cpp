@@ -1,3 +1,4 @@
+#include <RequestHandler.hpp>
 #include <HttpRequest.hpp>
 #include <Client.hpp>
 #include <Logger.hpp>
@@ -37,16 +38,15 @@ Epoll::EventState Client::_receive_data()
 
     if (_request.getState() == HttpRequest::HEADERS_COMPLETE)
     {
-        // _check_request();
         _request.parse("");
     }
     if (_request.getState() == HttpRequest::BODY)
     {
-        // _check_request();
         _request.parse("");
     }
     if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
     {
+        
         // _epoll.edit_fd(m_fd, this, EPOLLOUT);
     }
 
