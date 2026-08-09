@@ -2,7 +2,7 @@
 # define CLIENT_HPP
 #include <ServerConfig.hpp>
 #include <HttpRequest.hpp>
-// #include <Response.hpp>
+#include <HttpResponse.hpp>
 #include <Epoll.hpp>
 #include <AFd.hpp>
 #include <vector>
