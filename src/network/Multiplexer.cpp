@@ -33,8 +33,8 @@ void Multiplexer::events_loop()
         for (int i = 0; i < readyFds; i++)
         {
             fdObj = static_cast<AFd *>(events[i].data.ptr);
-            LOG_INFO << "event came on fd " << fdObj->get_fd();
-            if (fdObj->handle_event(events[i].events) != Epoll::EVENT_CONTINUE)
+            LOG_DEBUG << "event " << events[i].events << " came on fd " << fdObj->get_fd();
+            if (fdObj->handle_event(events[i].events) != Epoll::ECONTINUE)
             {
                 if (fdObj->get_type() == AFd::CLIENT)
                 {
@@ -42,14 +42,14 @@ void Multiplexer::events_loop()
                     _clientsList.erase(client->m_it);
                 }
                 _epoll.del_fd(fdObj->get_fd());
-                LOG_INFO << "Ended connection with the client on fd " << fdObj->get_fd();
+                LOG_DEBUG << "Ended connection with the client on fd " << fdObj->get_fd();
                 delete fdObj;
             }
             else if (fdObj->get_type() == AFd::CLIENT)
             {
                 Client *client = static_cast<Client *>(fdObj);
                 client->m_lastActivity = time(NULL);
-                _clientsList.pop_front();
+                _clientsList.erase(client->m_it);
                 _clientsList.push_back(client);
                 client->m_it = --_clientsList.end();
             }

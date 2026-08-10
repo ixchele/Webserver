@@ -99,7 +99,7 @@ Epoll::EventState Server::handle_event(uint32_t event) {
     if (clientFd == -1)
     {
         LOG_WARN << "accept4() failed on " << m_key;
-        return Epoll::EVENT_CONTINUE;
+        return Epoll::ECONTINUE;
     }
     LOG_INFO << "Accepted a client as fd " << clientFd;
     Client *client = new Client(clientFd, _epoll, m_configs);
@@ -112,7 +112,7 @@ Epoll::EventState Server::handle_event(uint32_t event) {
     }
     _clientsList.push_back(client);
     client->m_it = --_clientsList.end();
-    return Epoll::EVENT_CONTINUE;
+    return Epoll::ECONTINUE;
 }
 
 string Server::craft_key(const string &ip, int port) {

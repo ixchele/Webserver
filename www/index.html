@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal - zbengued</title>
+    <style>
+        body {
+            background-color: #0c0c0c;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow-x: hidden;
+            font-size: 16px;
+        }
+        #output {
+            white-space: pre-wrap;
+            margin-bottom: 5px;
+        }
+        .input-line {
+            display: flex;
+        }
+        .prompt {
+            margin-right: 10px;
+            color: #00ff00;
+        }
+        input {
+            background-color: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            width: 100%;
+            outline: none;
+        }
+        .error { color: #ff5555; }
+        .info { color: #8be9fd; }
+        .success { color: #50fa7b; }
+    </style>
+</head>
+<body>
+    <div id="output">Inception OS v1.0.0 (tty1)
+Welcome to zbengued's static server.
+Type '<span class="info">help</span>' to see available commands.
+</div>
+    <div class="input-line">
+        <span class="prompt">guest@zbengued:~$</span>
+        <input type="text" id="cmd" autocomplete="off" autofocus>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+        const input = document.getElementById('cmd');
+
+        document.addEventListener('click', () => input.focus());
+
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                const command = input.value.trim();
+                input.value = ''; 
+
+                if (command !== 'clear') {
+                    output.innerHTML += `\n<span class="prompt">guest@zbengued:~$</span> ${command}\n`;
+                }
+
+                if (command) {
+                    processCommand(command.toLowerCase());
+                }
+
+                window.scrollTo(0, document.body.scrollHeight);
+            }
+        });
+
+        function processCommand(cmd) {
+            switch(cmd) {
+                case 'help':
+                    output.innerHTML += "Available commands: <span class='info'>whoami, about, skills, clear, date, sudo</span>";
+                    break;
+                case 'whoami':
+                    output.innerHTML += "zbengued - Student at 1337 (UM6P Benguerir)";
+                    break;
+                case 'about':
+                    output.innerHTML += "Project: Inception\nGoal: Deploy a complete Docker infrastructure.\nBonus: Static website hosted via Python3 behind NGINX.";
+                    break;
+                case 'skills':
+                    output.innerHTML += "Languages:  ,  ,  , ,  \nTools    : Using Arch btw, Neovim, Tmux, Docker";
+                    break;
+                case 'date':
+                    output.innerHTML += new Date().toString();
+                    break;
+                case 'clear':
+                    output.innerHTML = '';
+                    break;
+                case 'sudo':
+                    output.innerHTML += "<span class='error'>nice try. You are not in the sudoers file. This incident will be reported to the pedagogical team.</span>";
+                    break;
+                default:
+                    output.innerHTML += `<span class="error">bash: ${cmd}: command not found</span>`;
+            }
+        }
+    </script>
+</body>
+</html>

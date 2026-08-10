@@ -1,5 +1,6 @@
 #ifndef CLIENT_HPP
 # define CLIENT_HPP
+#include <RequestHandler.hpp>
 #include <ServerConfig.hpp>
 #include <HttpRequest.hpp>
 #include <HttpResponse.hpp>
@@ -35,10 +36,11 @@ class Client : public AFd
     Epoll &_epoll;
     HttpRequest _request;
     std::string _config;
-    // HttpResponse _response;
+    // RequestHandler *_rqst_handler;
+    HttpResponse _response;
 
     Epoll::EventState _receive_data();
-    // Epoll::EventState _send_data();
+    Epoll::EventState _send_data();
     const ServerConfig *_get_config(const std::string &host);
 };
 

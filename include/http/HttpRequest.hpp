@@ -35,6 +35,7 @@ class HttpRequest {
 		const std::string	&getTmpFilename() const;
 		size_t				getContentLength() const;
 		const std::map<std::string, std::string>	&getHeaders() const;
+		const std::string	&getHeader(const std::string &name) const;
 
 	private:
 		int					_client_fd;

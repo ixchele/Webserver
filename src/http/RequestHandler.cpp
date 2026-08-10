@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sstream>
+#include <Logger.hpp>
 
 RequestHandler::RequestHandler(const HttpRequest &request, HttpResponse &response, const ServerConfig &config)
 	: _request(request), _response(response), _config(config), _route(NULL) {
@@ -36,12 +37,12 @@ void	RequestHandler::handle(void) {
 		case HTTP_GET:
 			_handleGet(real_path);
 			break;
-		case HTTP_POST:
-			_handlePost(real_path);
-			break;
-		case HTTP_DELETE:
-			_handleDelete(real_path);
-			break;
+		// case HTTP_POST:
+		// 	_handlePost(real_path);
+		// 	break;
+		// case HTTP_DELETE:
+		// 	_handleDelete(real_path);
+			// break;
 		default:
 			_buildErrorResponse(HttpStatus::NotImplemented); // NOTE: 501
 			break;
@@ -117,10 +118,12 @@ void	RequestHandler::_buildErrorResponse(HttpStatus::Code code) {
 		oss << code_int;
 		std::string	code_str = oss.str();
 
+		// TODO: write error message
+
 		std::string	html = "<html>\r\n"
 			"<head><title>" + code_str + " Error</title></head>\r\n"
 			"<body style=\"font-family: Arial, sans-serif; text-align: center; margin-top: 50px;\">\r\n"
-			"    <h1>" + code_str + " - Une erreur est survenue</h1>\r\n"
+			"    <h1>" + code_str + " - todo: write error message" + "</h1>\r\n"
 			"    <hr style=\"width: 50%;\">\r\n"
 			"    <p>webserv/1.0 (1337)</p>\r\n"
 			"</body>\r\n"
@@ -136,6 +139,8 @@ void	RequestHandler::_buildErrorResponse(HttpStatus::Code code) {
 void	RequestHandler::_handleGet(const std::string &real_path) {
 	struct stat	file_stat;
 
+	LOG_DEBUG << "real path = " << real_path;
+
 	if (stat(real_path.c_str(), &file_stat) != 0) {
 		_buildErrorResponse(HttpStatus::NotFound); // 404
 		return;
@@ -146,10 +151,10 @@ void	RequestHandler::_handleGet(const std::string &real_path) {
 		return;
 	}
 
-	if (S_ISDIR(file_stat.st_mode)) {
-		_handleDirectory(real_path);
-		return;
-	}
+	// if (S_ISDIR(file_stat.st_mode)) {
+	// 	_handleDirectory(real_path);
+	// 	return;
+	// }
 
 	// TODO : plug isCgiExtension later
 

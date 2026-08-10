@@ -10,9 +10,9 @@ class Epoll
 {
 public:
     enum EventState {
-        EVENT_CONTINUE = 0,
-        EVENT_FINISHED = 1,
-        EVENT_ERROR = 2
+        ECONTINUE = 0,
+        EFINISHED = 1,
+        EERROR = 2
     };
     Epoll();
     ~Epoll();
