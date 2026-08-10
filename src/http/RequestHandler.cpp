@@ -152,10 +152,10 @@ void	RequestHandler::_handleGet(const std::string &real_path) {
 		return;
 	}
 
-	// if (S_ISDIR(file_stat.st_mode)) {
-	// 	_handleDirectory(real_path);
-	// 	return;
-	// }
+	if (S_ISDIR(file_stat.st_mode)) {
+		_handleDirectory(real_path);
+		return;
+	}
 
 	// TODO : plug isCgiExtension later
 
@@ -213,6 +213,7 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 		if (stat(test_path.c_str(), &file_stat) == 0 && access(test_path.c_str(), R_OK) == 0 && !S_ISDIR(file_stat.st_mode)) {
 			target_index_path = test_path;
 			index_found = true;
+			LOG_DEBUG << "Target index path = " << target_index_path;
 			break;
 		}
 	}
