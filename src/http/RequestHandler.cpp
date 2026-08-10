@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sstream>
 #include <Logger.hpp>
+#include <dirent.h>
 
 RequestHandler::RequestHandler(const HttpRequest &request, HttpResponse &response, const ServerConfig &config)
 	: _request(request), _response(response), _config(config), _route(NULL) {
@@ -195,4 +196,104 @@ std::string	RequestHandler::_guessMimeType(const std::string &path) const {
 	if (ext == ".pdf")						return "application/pdf";
 
 	return "application/octet-stream";
+}
+
+void    RequestHandler::_handleDirectory(const std::string &real_path) {
+	std::string	target_index_path = "";
+	bool		index_found = false;
+
+	for (size_t i = 0; i < _route->index.size(); ++i) {
+
+		std::string	test_path = real_path;
+		if (test_path.length() > 0 && test_path[test_path.length() - 1] != '/')
+			test_path += "/";
+		test_path += _route->index[i];
+
+		struct stat	file_stat;
+		if (stat(test_path.c_str(), &file_stat) == 0 && access(test_path.c_str(), R_OK) == 0 && !S_ISDIR(file_stat.st_mode)) {
+			target_index_path = test_path;
+			index_found = true;
+			break;
+		}
+	}
+
+	if (index_found) {
+		_response.setStatusCode(HttpStatus::OK);
+		_response.setHeader("Content-Type", _guessMimeType(target_index_path));
+
+		if (!_response.setFileBody(target_index_path))
+			_buildErrorResponse(HttpStatus::InternalServerError); // 500
+		else
+			_response.build();
+		return;
+	}
+
+	if (!_route->autoindex) {
+		_buildErrorResponse(HttpStatus::Forbidden); // 403
+		return;
+	}
+
+	DIR	*dir = opendir(real_path.c_str());
+	if (dir == NULL) {
+		_buildErrorResponse(HttpStatus::Forbidden); // 403
+		return;
+	}
+
+	std::string	uri_path = _request.getUri().getPath();
+	std::string	html = "<html>\r\n<head><title>Index of " + uri_path + "</title></head>\r\n"
+		"<body>\r\n<h1>Index of " + uri_path + "</h1>\r\n<hr><pre>\n";
+
+	if (uri_path != "/") {
+		html += "<a href=\"../\">../</a>\n";
+	}
+
+	struct dirent	*entry;
+	while ((entry = readdir(dir)) != NULL) {
+		std::string	name = entry->d_name;
+
+		if (name == "." || name == "..")
+			continue;
+
+		std::string	href = uri_path;
+		if (href.length() > 0 && href[href.length() - 1] != '/')
+			href += "/";
+		href += name;
+
+		if (entry->d_type == DT_DIR) {
+			name += "/";
+			href += "/";
+		}
+
+		html += "<a href=\"" + href + "\">" + name + "</a>\n";
+	}
+	closedir(dir);
+
+	html += "</pre><hr></body>\r\n</html>\r\n";
+
+	_response.setStatusCode(HttpStatus::OK);
+	_response.setHeader("Content-Type", "text/html");
+	_response.setBody(html);
+	_response.build();
+}
+
+void    RequestHandler::_handleDelete(const std::string &real_path) {
+	struct stat	file_stat;
+
+	if (stat(real_path.c_str(), &file_stat) != 0) {
+		_buildErrorResponse(HttpStatus::NotFound); // 404
+		return;
+	}
+
+	if (S_ISDIR(file_stat.st_mode)) {
+		_buildErrorResponse(HttpStatus::Forbidden); // 403
+		return;
+	}
+
+	if (unlink(real_path.c_str()) == 0) {
+		_response.setStatusCode(HttpStatus::NoContent); // 204
+		_response.build();
+
+	}
+	else
+		_buildErrorResponse(HttpStatus::Forbidden); // 403
 }
