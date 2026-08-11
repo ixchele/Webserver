@@ -100,6 +100,10 @@ Epoll::EventState Client::handle_event(uint32_t event)
 
 void Client::handle_timeout() {
   m_state = TIMEDOUT;
+  _request.setErrorCode(HttpStatus::RequestTimeout);
+  _request.setState(HttpRequest::ERROR);
+  RequestHandler rqst_handler(_request, _response, *m_configs[0]);
+  rqst_handler.handle();
   _epoll.edit_fd(m_fd, this, EPOLLOUT);
 }
 

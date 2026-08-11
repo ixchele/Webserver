@@ -8,9 +8,9 @@
 # include <map>
 # include <list>
 
-# define KEEPALIVE_TIMEOUT 75
-# define MAIN_TIMEOUT 60
-# define CGI_TIMEOUT 30
+# define KEEPTALIVE_TIMEOUT 7
+# define MAIN_TIMEOUT 6
+# define CGI_TIMEOUT 6
 
 using std::vector;
 

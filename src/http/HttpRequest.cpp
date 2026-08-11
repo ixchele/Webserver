@@ -162,3 +162,11 @@ void	HttpRequest::parse(const std::string &raw_data) {
 		}
 	}
 }
+
+void	HttpRequest::setState(ParseState state) {
+	_state = state;
+}
+
+void	HttpRequest::setErrorCode(HttpStatus::Code code) {
+	_code = code;
+}

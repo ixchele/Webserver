@@ -7,6 +7,32 @@
 #include <string.h>
 #include <sys/epoll.h>
 
+Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
+{
+    std::string key;
+    for (size_t confs = 0; confs < v_configs.size(); confs++)
+    {
+        for (size_t hosts = 0; hosts < v_configs[confs]->hosts.size(); hosts++)
+        {
+            for (size_t ports = 0; ports < v_configs[confs]->listen.size(); ports++)
+            {
+                key = Server::craft_key(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports]);
+                LOG_DEBUG << "crafted key: " << key;
+
+                ServersMap::iterator it = m_servers.find(key);
+                if (it == m_servers.end())
+                {
+                    this->m_servers[key] =
+                        new Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports],
+                                   v_configs[confs], _epoll, _clientsList);
+                }
+                else
+                    it->second->m_configs.push_back(v_configs[confs]);
+            }
+        }
+    }
+}
+
 void Multiplexer::startup()
 {
     ServersMap::iterator it;
@@ -58,28 +84,41 @@ void Multiplexer::events_loop()
     }
 }
 
-Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
+void Multiplexer::_handle_timeout()
 {
-    std::string key;
-    for (size_t confs = 0; confs < v_configs.size(); confs++)
+    time_t now = time(NULL);
+    time_t timeout;
+    Client *client;
+    while (true)
     {
-        for (size_t hosts = 0; hosts < v_configs[confs]->hosts.size(); hosts++)
+        if (_clientsList.empty())
+            return;
+        client = _clientsList.front();
+        if (client->m_state == Client::KEEPT_ALIVE)
+            timeout = KEEPTALIVE_TIMEOUT;
+        else
+            timeout = MAIN_TIMEOUT;
+        if (now - client->m_lastActivity > timeout)
         {
-            for (size_t ports = 0; ports < v_configs[confs]->listen.size(); ports++)
+            if (client->m_state == Client::RECEVING)
             {
-                key = Server::craft_key(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports]);
-                LOG_DEBUG << "crafted key: " << key;
-
-                ServersMap::iterator it = m_servers.find(key);
-                if (it == m_servers.end())
-                {
-                    this->m_servers[key] =
-                        new Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports],
-                                   v_configs[confs], _epoll, _clientsList);
-                }
-                else
-                    it->second->m_configs.push_back(v_configs[confs]);
+                client->handle_timeout();
+                _clientsList.pop_front();
+                client->m_lastActivity = time(NULL);
+                _clientsList.push_back(client);
+                client->m_it = _clientsList.begin();
             }
+            else
+            {
+                _clientsList.pop_front();
+                _epoll.del_fd(client->get_fd());
+                LOG_INFO << "Client with fd " << client->get_fd() << " timed out";
+                delete client;
+            }
+        }
+        else
+        {
+            break;
         }
     }
 }
@@ -93,39 +132,6 @@ Multiplexer::~Multiplexer()
         {
             _epoll.del_fd(it->second->get_fd());
             delete it->second;
-        }
-    }
-}
-
-void Multiplexer::_handle_timeout()
-{
-    time_t now = time(NULL);
-    time_t timeout;
-    Client *client;
-    while (true)
-    {
-        if (_clientsList.empty())
-            return;
-        client = _clientsList.front();
-        if (client->m_state == Client::IDLE)
-            timeout = MAIN_TIMEOUT;
-        else
-            timeout = MAIN_TIMEOUT;
-        if (now - client->m_lastActivity > timeout)
-        {
-            if (client->m_state == Client::RECEVING)
-                client->handle_timeout();
-            else
-            {
-                _clientsList.pop_front();
-                _epoll.del_fd(client->get_fd());
-                LOG_INFO << "Client with fd " << client->get_fd() << " timed out";
-                delete client;
-            }
-        }
-        else
-        {
-            break;
         }
     }
 }

@@ -37,6 +37,9 @@ class HttpRequest {
 		const std::map<std::string, std::string>	&getHeaders() const;
 		const std::string	&getHeader(const std::string &name) const;
 
+		void	setState(ParseState state);
+		void	setErrorCode(HttpStatus::Code code);
+
 	private:
 		int					_client_fd;
 		ParseState			_state;
