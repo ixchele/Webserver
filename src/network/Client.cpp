@@ -15,7 +15,7 @@ Client::~Client()
 }
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
-    : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(IDLE), 
+    : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(RECEVING), 
     m_configs(configs), _epoll(epoll), _request(fd) //, _response(_request, fd)
 {
   (void)_epoll;
@@ -51,14 +51,14 @@ Epoll::EventState Client::_receive_data()
         ServerConfig conf = *_get_config(host);
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
+        m_state = SENDING;
         _epoll.edit_fd(m_fd, this, EPOLLOUT);
     }
 
-    
     LOG_DEBUG << "The Request of client on fd " << m_fd << ":" \
-    << "\n\t\tMethod: " << _request.getMethod() \
-     << "\n\t\tPath: " << _request.getUri().getPath() \
-     << "\n\t\tversion: " << _request.getVersion();
+    << "\tMethod: " << _request.getMethod() \
+     << "\tPath: " << _request.getUri().getPath() \
+     << "\tversion: " << _request.getVersion();
 
     return Epoll::ECONTINUE;
 }
