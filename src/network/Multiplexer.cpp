@@ -108,9 +108,9 @@ void Multiplexer::_handle_timeout()
             return;
         client = _clientsList.front();
         if (client->m_state == Client::IDLE)
-            timeout = IDLE_CLIENT_TIMEOUT;
+            timeout = MAIN_TIMEOUT;
         else
-            timeout = ACTIVE_CLIENT_TIMEOUT;
+            timeout = MAIN_TIMEOUT;
         if (now - client->m_lastActivity > timeout)
         {
             if (client->m_state == Client::RECEVING)
