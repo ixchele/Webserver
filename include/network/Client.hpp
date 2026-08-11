@@ -16,7 +16,7 @@
 class Client : public AFd
 {
   public:
-    enum e_state {KEEPT_ALIVE, RECEVING, SENDING, EXECUTING_CGI, TIMEDOUT};
+    enum e_state {CKEEPT_ALIVE, CRECEVING, CSENDING_HEADERS, CSENDING_BODY, CEXECUTING_CGI, CFINISHED, CTIMEDOUT};
 
     time_t m_lastActivity;
     e_state m_state;
@@ -38,6 +38,7 @@ class Client : public AFd
     std::string _config;
     // RequestHandler *_rqst_handler;
     HttpResponse _response;
+    size_t _bytes_sent;
 
     Epoll::EventState _receive_data();
     Epoll::EventState _send_data();

@@ -31,7 +31,11 @@ size_t	HttpRequest::getContentLength() const { return _content_length; }
 
 const std::map<std::string, std::string> &HttpRequest::getHeaders() const { return _headers; }
 
-const std::string &HttpRequest::getHeader(const std::string &name) const { return _headers.at(name); }
+std::string HttpRequest::getHeader(const std::string &name) const {
+	if (_headers.find(name) != _headers.end())
+		return _headers.at(name);
+	return "";
+}
 
 void	HttpRequest::_parseRequestLine(const std::string &line) {
 	std::istringstream	iss(line);

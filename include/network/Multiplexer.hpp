@@ -9,7 +9,7 @@
 # include <list>
 
 # define KEEPTALIVE_TIMEOUT 7
-# define MAIN_TIMEOUT 6
+# define MAIN_TIMEOUT 60
 # define CGI_TIMEOUT 6
 
 using std::vector;

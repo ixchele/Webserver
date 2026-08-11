@@ -15,10 +15,10 @@ Client::~Client()
 }
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
-    : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(RECEVING), 
-    m_configs(configs), _epoll(epoll), _request(fd) //, _response(_request, fd)
+    : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
+      m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0) //, _response(_request, fd)
 {
-  (void)_epoll;
+    (void)_epoll;
 }
 
 Epoll::EventState Client::_receive_data()
@@ -28,7 +28,7 @@ Epoll::EventState Client::_receive_data()
     size_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
     if (bytes == static_cast<size_t>(-1) || bytes == 0)
     {
-        LOG_WARN << "recv() failed with " << bytes << " on client with fd " << m_fd;
+        LOG_WARN << "recv() returned " << bytes << " on client with fd " << m_fd;
         return Epoll::EERROR;
     }
     buffer[bytes] = '\0';
@@ -51,30 +51,50 @@ Epoll::EventState Client::_receive_data()
         ServerConfig conf = *_get_config(host);
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
-        m_state = SENDING;
+        m_state = CSENDING_HEADERS;
         _epoll.edit_fd(m_fd, this, EPOLLOUT);
     }
 
-    LOG_DEBUG << "The Request of client on fd " << m_fd << ":" \
-    << "\tMethod: " << _request.getMethod() \
-     << "\tPath: " << _request.getUri().getPath() \
-     << "\tversion: " << _request.getVersion();
+    LOG_DEBUG << "The Request of client on fd " << m_fd << ":"
+              << "\tMethod: " << _request.getMethod()
+              << "\tPath: " << _request.getUri().getPath()
+              << "\tVersion: " << _request.getVersion()
+              << "\tConnection: " << _request.getHeader("Connection");
 
     return Epoll::ECONTINUE;
 }
 
-Epoll::EventState Client::_send_data() {
-    char buffer[APP_BUFFER_SIZE];
+Epoll::EventState Client::_send_data()
+{
+    char buffer[APP_BUFFER_SIZE + 1];
+    size_t body_bytes = 0;
     std::string headers = _response.getHeaderBuffer();
-    size_t bytes = send(m_fd, headers.c_str(), headers.size(), 0);
-    _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
-    bytes += send(m_fd, buffer, APP_BUFFER_SIZE, 0);
-    if (bytes == static_cast<size_t>(-1) || bytes == 0)
+    size_t headers_bytes = send(m_fd, headers.c_str() + _bytes_sent, headers.size() - _bytes_sent, 0);
+    if (headers_bytes == static_cast<size_t>(-1) || headers_bytes == 0)
     {
-        LOG_WARN << "recv() failed with " << bytes << " on client with fd " << m_fd;
+        LOG_WARN << "send() returned " << headers_bytes << " on client with fd " << m_fd;
         return Epoll::EERROR;
     }
-    LOG_DEBUG << "we sent " << bytes << " bytes to client with fd " << m_fd;
+    _bytes_sent += headers_bytes;
+    if (_response.hasFile())
+    {
+        _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
+        body_bytes += send(m_fd, buffer, APP_BUFFER_SIZE, 0);
+        buffer[body_bytes] = '\0';
+        if (body_bytes == static_cast<size_t>(-1) || body_bytes == 0)
+        {
+            LOG_WARN << "send() returned " << body_bytes << " on client with fd " << m_fd;
+            return Epoll::EERROR;
+        }
+        _bytes_sent += body_bytes;
+    }
+    LOG_DEBUG << "we sent " << _bytes_sent << " bytes to client with fd " << m_fd;
+    if (_request.getHeader("Connection") == "keep-alive")
+    {
+        m_state = CKEEPT_ALIVE;
+        _epoll.edit_fd(m_fd, this, EPOLLIN);
+        return Epoll::ECONTINUE;
+    }
     return Epoll::EFINISHED;
 }
 
@@ -83,11 +103,11 @@ Epoll::EventState Client::handle_event(uint32_t event)
     // to do
     if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
     {
-      return Epoll::EERROR;
+        return Epoll::EERROR;
     }
     if (event & EPOLLIN)
     {
-        m_state = RECEVING;
+        m_state = CRECEVING;
         return _receive_data();
     }
     if (event & EPOLLOUT)
@@ -98,13 +118,14 @@ Epoll::EventState Client::handle_event(uint32_t event)
         return Epoll::EFINISHED;
 }
 
-void Client::handle_timeout() {
-  m_state = TIMEDOUT;
-  _request.setErrorCode(HttpStatus::RequestTimeout);
-  _request.setState(HttpRequest::ERROR);
-  RequestHandler rqst_handler(_request, _response, *m_configs[0]);
-  rqst_handler.handle();
-  _epoll.edit_fd(m_fd, this, EPOLLOUT);
+void Client::handle_timeout()
+{
+    m_state = CTIMEDOUT;
+    _request.setErrorCode(HttpStatus::RequestTimeout);
+    _request.setState(HttpRequest::ERROR);
+    RequestHandler rqst_handler(_request, _response, *m_configs[0]);
+    rqst_handler.handle();
+    _epoll.edit_fd(m_fd, this, EPOLLOUT);
 }
 
 const ServerConfig *Client::_get_config(const std::string &host)
