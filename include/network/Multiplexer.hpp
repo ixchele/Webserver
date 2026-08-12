@@ -20,7 +20,7 @@ class Multiplexer
 public:
 	std::map <std::string, Server*> m_servers;
 
-  Multiplexer(const vector<ServerConfig*> &v_configs);
+  Multiplexer(const vector<ServerConfig> &v_configs);
 
 	void startup();
 	void events_loop();

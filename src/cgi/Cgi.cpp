@@ -78,17 +78,17 @@ Epoll::EventState Cgi::handle_event(uint32_t event) {
     if (bytes == 0)
     {
       LOG_WARN << "recv() from fd " << m_fd << " returnred " << bytes;
-      return Epoll::EVENT_ERROR;
+      return Epoll::EERROR;
     }
     else if (bytes == -1)
     {
       LOG_ERROR << "recv() from fd " << m_fd << " returnred " << bytes;
-      return Epoll::EVENT_ERROR;
+      return Epoll::EERROR;
     }
     _buffer += cbuffer;
     LOG_DEBUG << "Cgi with fd " << m_fd << " wrote:\n" << _buffer;
   }
-  return Epoll::EVENT_FINISHED;
+  return Epoll::EFINISHED;
 }
 
 void Cgi::_set_env() {

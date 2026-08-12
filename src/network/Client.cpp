@@ -9,11 +9,6 @@
 #include <sys/socket.h>
 #include <Logger.hpp>
 
-Client::~Client()
-{
-    close(m_fd);
-}
-
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
       m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0) //, _response(_request, fd)
@@ -143,4 +138,9 @@ const ServerConfig *Client::_get_config(const std::string &host)
     }
     LOG_INFO << "Client with fd " << m_fd << " will use the default config";
     return m_configs[0];
+}
+
+Client::~Client()
+{
+    //
 }

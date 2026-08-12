@@ -21,7 +21,7 @@ int main(int ac, char **av)
 
 	TokenList tokenList = tokenizer(av[1]);
 	ConfigParser lexer(tokenList);
-	std::vector<ServerConfig *> v_configs;
+	std::vector<ServerConfig> v_configs;
 	try
 	{
 		v_configs = lexer.parse();

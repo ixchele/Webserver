@@ -4,7 +4,7 @@
 CommonConfig::CommonConfig()	
 	: root(""),
 	autoindex(false),
-	client_max_body_size(1),
+	client_max_body_size(1024),
 	return_val("") {
 	// pass
 }

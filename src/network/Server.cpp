@@ -41,8 +41,7 @@ Server::Server(const std::string &key, const std::string &ip, short port,
 }
 
 Server::~Server() {
-    if (this->m_fd != -1)
-        close(this->m_fd);
+    //
 }
 
 void Server::add_config(const ServerConfig *config) {

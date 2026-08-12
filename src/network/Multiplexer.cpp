@@ -7,27 +7,27 @@
 #include <string.h>
 #include <sys/epoll.h>
 
-Multiplexer::Multiplexer(const vector<ServerConfig *> &v_configs)
+Multiplexer::Multiplexer(const vector<ServerConfig> &v_configs)
 {
     std::string key;
     for (size_t confs = 0; confs < v_configs.size(); confs++)
     {
-        for (size_t hosts = 0; hosts < v_configs[confs]->hosts.size(); hosts++)
+        for (size_t hosts = 0; hosts < v_configs[confs].hosts.size(); hosts++)
         {
-            for (size_t ports = 0; ports < v_configs[confs]->listen.size(); ports++)
+            for (size_t ports = 0; ports < v_configs[confs].listen.size(); ports++)
             {
-                key = Server::craft_key(v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports]);
+                key = Server::craft_key(v_configs[confs].hosts[hosts], v_configs[confs].listen[ports]);
                 LOG_DEBUG << "crafted key: " << key;
 
                 ServersMap::iterator it = m_servers.find(key);
                 if (it == m_servers.end())
                 {
                     this->m_servers[key] =
-                        new Server(key, v_configs[confs]->hosts[hosts], v_configs[confs]->listen[ports],
-                                   v_configs[confs], _epoll, _clientsList);
+                        new Server(key, v_configs[confs].hosts[hosts], v_configs[confs].listen[ports],
+                                   &v_configs[confs], _epoll, _clientsList);
                 }
                 else
-                    it->second->m_configs.push_back(v_configs[confs]);
+                    it->second->m_configs.push_back(&v_configs[confs]);
             }
         }
     }
@@ -94,13 +94,13 @@ void Multiplexer::_handle_timeout()
         if (_clientsList.empty())
             return;
         client = _clientsList.front();
-        if (client->m_state == Client::KEEPT_ALIVE)
+        if (client->m_state == Client::CKEEPT_ALIVE)
             timeout = KEEPTALIVE_TIMEOUT;
         else
             timeout = MAIN_TIMEOUT;
         if (now - client->m_lastActivity > timeout)
         {
-            if (client->m_state == Client::RECEVING)
+            if (client->m_state == Client::CRECEVING)
             {
                 client->handle_timeout();
                 _clientsList.pop_front();
