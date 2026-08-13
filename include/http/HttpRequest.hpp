@@ -40,6 +40,8 @@ class HttpRequest {
 		void	setState(ParseState state);
 		void	setErrorCode(HttpStatus::Code code);
 
+		void reset();
+
 	private:
 		int					_client_fd;
 		ParseState			_state;

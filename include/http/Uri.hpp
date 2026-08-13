@@ -20,6 +20,8 @@ public:
     const std::string&  getQuery() const;
     const std::string&  getFragment() const;
 
+    void reset();
+
 private:
     std::string     _original;
     std::string     _scheme;

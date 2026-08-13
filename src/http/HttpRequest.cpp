@@ -174,3 +174,17 @@ void	HttpRequest::setState(ParseState state) {
 void	HttpRequest::setErrorCode(HttpStatus::Code code) {
 	_code = code;
 }
+
+void HttpRequest::reset() {
+	_state = REQUEST_LINE;
+	_content_length = 0;
+	_bytes_received = 0;
+	_uri.reset();
+	_version.clear();
+	_headers.clear();
+	_temp_filename.clear();
+	_body_file.close();
+	_content_length = 0;
+	_bytes_received = 0;
+	_buffer.clear();
+}

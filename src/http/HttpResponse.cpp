@@ -88,3 +88,12 @@ std::string	HttpResponse::_generateStatusLine(void) const {
 
 	return "HTTP/1.1 " + _intToString(static_cast<size_t>(_status_code)) + " " + reason;
 }
+
+void HttpResponse::reset() {
+	_status_code = HttpStatus::OK;
+	_headers.clear();
+	_body_string.clear();
+	_header_buffer.clear();
+	_file_stream.close();
+	_has_file = false;
+}

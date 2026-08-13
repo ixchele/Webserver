@@ -22,6 +22,8 @@ class HttpResponse {
 		bool				hasFile(void) const;
 		std::ifstream		&getFileStream(void);
 
+		void reset();
+
 	private:
 		HttpStatus::Code					_status_code;
 		std::map<std::string, std::string>	_headers;

@@ -107,3 +107,13 @@ unsigned short     Uri::getPort() const     { return _port; }
 const std::string& Uri::getPath() const     { return _path; }
 const std::string& Uri::getQuery() const    { return _query; }
 const std::string& Uri::getFragment() const { return _fragment; }
+
+void Uri::reset() {
+	_original.clear();
+	_scheme.clear();
+	_host.clear();
+	_port = 0;
+	_path.clear();
+	_query.clear();
+	_fragment.clear();
+}

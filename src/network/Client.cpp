@@ -61,7 +61,7 @@ Epoll::EventState Client::_receive_data()
 
 Epoll::EventState Client::_send_data()
 {
-    if (m_state == CSENDING_HEADERS)
+    if (m_state == CSENDING_HEADERS || m_state == CTIMEDOUT)
     {
         std::string headers = _response.getHeaderBuffer();
 
@@ -77,7 +77,10 @@ Epoll::EventState Client::_send_data()
 
         if (_bytes_sent == headers.size())
         {
-            m_state = CSENDING_BODY;
+            if (_response.hasFile())
+                m_state = CSENDING_BODY;
+            else
+                m_state = CFINISHED;
             _bytes_sent = 0;
         }
         else
@@ -85,12 +88,12 @@ Epoll::EventState Client::_send_data()
             return Epoll::ECONTINUE;
         }
     }
-    if (_response.hasFile())
+    if (m_state == CSENDING_BODY)
     {
         char buffer[APP_BUFFER_SIZE + 1];
         size_t body_bytes = 0;
         _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
-        body_bytes += send(m_fd, buffer, APP_BUFFER_SIZE, 0);
+        body_bytes += send(m_fd, buffer, _response.getFileStream().gcount(), 0);
         buffer[body_bytes] = '\0';
         if (body_bytes == static_cast<size_t>(-1) || body_bytes == 0)
         {
@@ -99,9 +102,9 @@ Epoll::EventState Client::_send_data()
         }
         _bytes_sent += body_bytes;
         if (_response.getFileStream().eof())
-        {
             m_state = CFINISHED;
-        }
+        else
+            return Epoll::ECONTINUE;
     }
     LOG_DEBUG << "we sent " << _bytes_sent << " bytes to client with fd " << m_fd;
     if (m_state == CFINISHED && _request.getHeader("Connection") == "keep-alive")
@@ -109,6 +112,8 @@ Epoll::EventState Client::_send_data()
         m_state = CKEEPT_ALIVE;
         if (_epoll.edit_fd(m_fd, this, EPOLLIN))
             return Epoll::EERROR;
+        _request.reset();
+        _response.reset();
         return Epoll::ECONTINUE;
     }
     return Epoll::EFINISHED;
