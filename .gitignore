@@ -4,6 +4,6 @@ obj/
 playground/
 compile_flags.txt
 webserv
-
+AGENTS.md
 package-lock.json
 package.json

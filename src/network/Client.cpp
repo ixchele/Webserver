@@ -61,18 +61,34 @@ Epoll::EventState Client::_receive_data()
 
 Epoll::EventState Client::_send_data()
 {
-    char buffer[APP_BUFFER_SIZE + 1];
-    size_t body_bytes = 0;
-    std::string headers = _response.getHeaderBuffer();
-    size_t headers_bytes = send(m_fd, headers.c_str() + _bytes_sent, headers.size() - _bytes_sent, 0);
-    if (headers_bytes == static_cast<size_t>(-1) || headers_bytes == 0)
+    if (m_state == CSENDING_HEADERS)
     {
-        LOG_WARN << "send() returned " << headers_bytes << " on client with fd " << m_fd;
-        return Epoll::EERROR;
+        std::string headers = _response.getHeaderBuffer();
+
+        {
+            size_t headers_bytes = send(m_fd, headers.c_str() + _bytes_sent, headers.size() - _bytes_sent, 0);
+            if (headers_bytes == static_cast<size_t>(-1) || headers_bytes == 0)
+            {
+                LOG_WARN << "send() returned " << headers_bytes << " on client with fd " << m_fd;
+                return Epoll::EERROR;
+            }
+            _bytes_sent += headers_bytes;
+        }
+
+        if (_bytes_sent == headers.size())
+        {
+            m_state = CSENDING_BODY;
+            _bytes_sent = 0;
+        }
+        else
+        {
+            return Epoll::ECONTINUE;
+        }
     }
-    _bytes_sent += headers_bytes;
     if (_response.hasFile())
     {
+        char buffer[APP_BUFFER_SIZE + 1];
+        size_t body_bytes = 0;
         _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
         body_bytes += send(m_fd, buffer, APP_BUFFER_SIZE, 0);
         buffer[body_bytes] = '\0';
@@ -82,12 +98,17 @@ Epoll::EventState Client::_send_data()
             return Epoll::EERROR;
         }
         _bytes_sent += body_bytes;
+        if (_response.getFileStream().eof())
+        {
+            m_state = CFINISHED;
+        }
     }
     LOG_DEBUG << "we sent " << _bytes_sent << " bytes to client with fd " << m_fd;
-    if (_request.getHeader("Connection") == "keep-alive")
+    if (m_state == CFINISHED && _request.getHeader("Connection") == "keep-alive")
     {
         m_state = CKEEPT_ALIVE;
-        _epoll.edit_fd(m_fd, this, EPOLLIN);
+        if (_epoll.edit_fd(m_fd, this, EPOLLIN))
+            return Epoll::EERROR;
         return Epoll::ECONTINUE;
     }
     return Epoll::EFINISHED;

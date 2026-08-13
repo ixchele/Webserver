@@ -361,7 +361,7 @@ void	ConfigParser::serverBlock() {
 	consume("server");
 	consume("{");
 
-	// this->tmpServer.resetConf();
+	this->tmpServer.resetConf();
 	this->currentBlock = &this->tmpServer;
 
 	while (this->currentContent() != "}")

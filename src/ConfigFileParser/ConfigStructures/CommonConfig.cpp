@@ -5,6 +5,7 @@ CommonConfig::CommonConfig()
 	: root(""),
 	autoindex(false),
 	client_max_body_size(1024),
+    methods(0),
 	return_val("") {
 	// pass
 }
@@ -18,6 +19,7 @@ void	CommonConfig::resetConf(void) {
 	this->index.clear();
 	this->autoindex = false;
 	this->client_max_body_size = 1024;
+    this->methods = 0;
 	this->cgi_pass.clear();
 	this->error_page.clear();
 	this->return_val = "";
