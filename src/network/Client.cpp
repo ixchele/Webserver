@@ -12,7 +12,7 @@ Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
       m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0) //, _response(_request, fd)
 {
-    
+
 }
 
 Epoll::EventState Client::_receive_data()
@@ -20,7 +20,7 @@ Epoll::EventState Client::_receive_data()
     char buffer[APP_BUFFER_SIZE + 1];
 
     ssize_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
-    if (bytes == static_cast<size_t>(-1) || bytes == 0)
+    if (bytes == -1 || bytes == 0)
     {
         LOG_WARN << "recv() returned " << bytes << " on client with fd " << m_fd;
         return Epoll::EERROR;
@@ -74,7 +74,7 @@ Epoll::EventState Client::_send_data()
             _bytes_sent += headers_bytes;
         }
 
-        if (_bytes_sent == headers.size())
+        if (static_cast<size_t>(_bytes_sent) == headers.size())
         {
             if (_response.hasFile())
                 m_state = CSENDING_BODY;
