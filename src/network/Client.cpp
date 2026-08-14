@@ -7,20 +7,19 @@
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <Logger.hpp>
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
       m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0) //, _response(_request, fd)
 {
-    (void)_epoll;
+    
 }
 
 Epoll::EventState Client::_receive_data()
 {
     char buffer[APP_BUFFER_SIZE + 1];
 
-    size_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
+    ssize_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
     if (bytes == static_cast<size_t>(-1) || bytes == 0)
     {
         LOG_WARN << "recv() returned " << bytes << " on client with fd " << m_fd;
@@ -66,8 +65,8 @@ Epoll::EventState Client::_send_data()
         std::string headers = _response.getHeaderBuffer();
 
         {
-            size_t headers_bytes = send(m_fd, headers.c_str() + _bytes_sent, headers.size() - _bytes_sent, 0);
-            if (headers_bytes == static_cast<size_t>(-1) || headers_bytes == 0)
+            ssize_t headers_bytes = send(m_fd, headers.c_str() + _bytes_sent, headers.size() - _bytes_sent, 0);
+            if (headers_bytes == -1 || headers_bytes == 0)
             {
                 LOG_WARN << "send() returned " << headers_bytes << " on client with fd " << m_fd;
                 return Epoll::EERROR;
@@ -91,11 +90,11 @@ Epoll::EventState Client::_send_data()
     if (m_state == CSENDING_BODY)
     {
         char buffer[APP_BUFFER_SIZE + 1];
-        size_t body_bytes = 0;
+        ssize_t body_bytes = 0;
         _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
         body_bytes += send(m_fd, buffer, _response.getFileStream().gcount(), 0);
         buffer[body_bytes] = '\0';
-        if (body_bytes == static_cast<size_t>(-1) || body_bytes == 0)
+        if (body_bytes == -1 || body_bytes == 0)
         {
             LOG_WARN << "send() returned " << body_bytes << " on client with fd " << m_fd;
             return Epoll::EERROR;

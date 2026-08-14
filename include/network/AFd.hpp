@@ -1,13 +1,7 @@
 #ifndef AFD_HPP
 # define AFD_HPP
 # include <Epoll.hpp>
-# include <ServerConfig.hpp>
-# include <netinet/in.h>
-# include <sys/socket.h>
-# include <sys/epoll.h>
-# include <exception>
 # include <string>
-# include <vector>
 
 class AFd
 {

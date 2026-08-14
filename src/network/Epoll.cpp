@@ -1,12 +1,10 @@
+#include <Logger.hpp>
 #include <Epoll.hpp>
 #include <sys/epoll.h>
+#include <unistd.h>
 #include <stdexcept>
 #include <iostream>
 #include <string>
-#include <unistd.h>
-#include <string.h>
-#include <stdio.h>
-#include <sstream>
 
 Epoll::Epoll() {
 	m_fd = epoll_create1(EPOLL_CLOEXEC);
@@ -27,8 +25,6 @@ int Epoll::add_fd(int fd, AFd *ptr, int events) {
 	ev.events = events;
 	ret = epoll_ctl(m_fd, EPOLL_CTL_ADD, fd, &ev);
 
-	if(ret != 0)
-		perror("Error from epoll_ctl()");
 	return ret;
 }
 
@@ -42,12 +38,10 @@ int Epoll::edit_fd(int fd, AFd *ptr, int events) {
 
 void Epoll::del_fd(int fd) {
 	if (epoll_ctl(m_fd, EPOLL_CTL_DEL, fd, NULL) == -1)
-		std::cerr << "warning: epoll_ctl() failed to delete fd " << fd << std::endl;
+		LOG_WARN << "warning: epoll_ctl() failed to delete fd " << fd;
 }
 
 int	Epoll::wait(epoll_event *events) {
 	int readyFds = epoll_wait(m_fd, events, MAXEVENTS, 100);
-	if (readyFds == -1)
-		std::cerr << "warning: epoll_wait() failed" << std::endl;
 	return readyFds;
 }

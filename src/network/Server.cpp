@@ -2,7 +2,6 @@
 #include <Logger.hpp>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -35,6 +34,7 @@ Server::Server(const std::string &key, const std::string &ip, short port,
     else
     {
         this->m_addr = *((sockaddr_in *)res->ai_addr);
+        freeaddrinfo(res);
     }
     m_addr.sin_port = htons(port);
     run();
@@ -49,12 +49,12 @@ void Server::add_config(const ServerConfig *config) {
 }
 
 void Server::run() {
-    creat_socket();
+    create_socket();
     bind_address();
     start_listening();
 }
 
-void Server::creat_socket() {
+void Server::create_socket() {
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (this->m_fd == -1)
 	{
@@ -69,7 +69,7 @@ void Server::bind_address() {
 	{
         throw std::runtime_error("error: setsockopt() failed on " + m_key);
 	}
-    if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), 16) != 0)
+    if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), sizeof(m_addr)) != 0)
 	{
         throw std::runtime_error("error: bind() failed on " + m_key);
 	}
@@ -109,12 +109,15 @@ Epoll::EventState Server::handle_event(uint32_t event) {
         delete client;
         LOG_INFO << "Ended connection with client on fd " << clientFd;
     }
-    _clientsList.push_back(client);
-    client->m_it = --_clientsList.end();
-    return Epoll::ECONTINUE;
+    else
+    {
+        _clientsList.push_back(client);
+        client->m_it = --_clientsList.end();
+    }
+        return Epoll::ECONTINUE;
 }
 
-string Server::craft_key(const string &ip, int port) {
+std::string Server::craft_key(const std::string &ip, int port) {
 	std::stringstream ssKey;
     addrinfo hints, *res;
 
@@ -136,6 +139,7 @@ string Server::craft_key(const string &ip, int port) {
         ssKey << &buffer[0];
         ssKey << ':';
 		ssKey << port;
+        freeaddrinfo(res);
     }
     return ssKey.str();
 }

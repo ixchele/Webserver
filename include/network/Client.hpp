@@ -20,7 +20,6 @@ class Client : public AFd
 
     time_t m_lastActivity;
     e_state m_state;
-    std::string m_buffer;
     std::vector<const ServerConfig *> &m_configs;
     std::list<Client *>::iterator m_it;
 
@@ -35,10 +34,9 @@ class Client : public AFd
     // sockaddr_in _client_addr;
     Epoll &_epoll;
     HttpRequest _request;
-    std::string _config;
     // RequestHandler *_rqst_handler;
     HttpResponse _response;
-    size_t _bytes_sent;
+    ssize_t _bytes_sent;
 
     Epoll::EventState _receive_data();
     Epoll::EventState _send_data();

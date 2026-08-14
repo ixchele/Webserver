@@ -26,17 +26,7 @@ int main(int ac, char **av)
 	{
 		v_configs = lexer.parse();
 		// std::cout << *v_configs[0];
-	}
-	catch (ConfigParser::ConfigException &e)
-	{
-		std::cerr << e.what() << std::endl;
-	}
-	catch (std::exception &e)
-	{
-		std::cerr << e.what() << std::endl;
-	}
-	try
-	{
+
 		Multiplexer multiplexer(v_configs);
 		ServersMap::iterator it;
 		for (it = multiplexer.m_servers.begin(); it != multiplexer.m_servers.end(); ++it)
@@ -44,6 +34,10 @@ int main(int ac, char **av)
 			LOG_INFO << "server " << it->second->m_key << " is running";
 		}
 		multiplexer.startup();
+	}
+	catch (ConfigParser::ConfigException &e)
+	{
+		std::cerr << e.what() << std::endl;
 	}
 	catch (std::exception &e)
 	{
