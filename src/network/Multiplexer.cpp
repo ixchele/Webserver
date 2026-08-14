@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 
-Multiplexer::Multiplexer(const vector<ServerConfig> &v_configs)
+Multiplexer::Multiplexer(const std::vector<ServerConfig> &v_configs)
 {
     std::string key;
     for (size_t confs = 0; confs < v_configs.size(); confs++)
@@ -35,6 +35,8 @@ Multiplexer::Multiplexer(const vector<ServerConfig> &v_configs)
 
 void Multiplexer::startup()
 {
+    if (m_servers.empty())
+        throw std::runtime_error("Error: This Multiplexer's servers list is empty");
     ServersMap::iterator it;
     for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
     {
@@ -55,6 +57,8 @@ void Multiplexer::events_loop()
     {
         epoll_event events[MAXEVENTS];
         readyFds = _epoll.wait(events);
+        if (readyFds < 0)
+            continue;
 
         for (int i = 0; i < readyFds; i++)
         {
@@ -106,7 +110,7 @@ void Multiplexer::_handle_timeout()
                 _clientsList.pop_front();
                 client->m_lastActivity = time(NULL);
                 _clientsList.push_back(client);
-                client->m_it = _clientsList.begin();
+                client->m_it = --_clientsList.end();
             }
             else
             {
@@ -125,13 +129,27 @@ void Multiplexer::_handle_timeout()
 
 Multiplexer::~Multiplexer()
 {
-    ServersMap::iterator it;
-    for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
     {
-        if (it->second != NULL)
+        Client *client;
+
+        while(!_clientsList.empty())
         {
-            _epoll.del_fd(it->second->get_fd());
-            delete it->second;
+            client = _clientsList.front();
+            _epoll.del_fd(client->get_fd());
+            delete client;
+            _clientsList.pop_front();
+        }
+    }
+
+    {
+        ServersMap::iterator it;
+        for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
+        {
+            if (it->second != NULL)
+            {
+                _epoll.del_fd(it->second->get_fd());
+                delete it->second;
+            }
         }
     }
 }

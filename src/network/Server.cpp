@@ -12,13 +12,13 @@
 #include <sstream>
 #include <cstdlib>
 
-Server::Server(const std::string &key, const std::string &ip, short port, 
-    const ServerConfig *config, Epoll &epoll, 
-    std::list<Client *> &clientsList)
+Server::Server(const std::string &key, const std::string &ip, int port,
+               const ServerConfig *config, Epoll &epoll,
+               std::list<Client *> &clientsList)
 
-	: AFd(-1, AFd::SERVER), m_key(key), 
-    m_ip(ip), m_port(port), _epoll(epoll), 
-    _clientsList(clientsList)
+    : AFd(-1, AFd::SERVER), m_key(key),
+      m_ip(ip), m_port(port), _epoll(epoll),
+      _clientsList(clientsList)
 {
     m_configs.push_back(config);
     std::memset(&this->m_addr, 0, sizeof(m_addr));
@@ -40,59 +40,70 @@ Server::Server(const std::string &key, const std::string &ip, short port,
     run();
 }
 
-Server::~Server() {
+Server::~Server()
+{
     //
 }
 
-void Server::add_config(const ServerConfig *config) {
+void Server::add_config(const ServerConfig *config)
+{
     m_configs.push_back(config);
 }
 
-void Server::run() {
+void Server::run()
+{
     create_socket();
     bind_address();
     start_listening();
 }
 
-void Server::create_socket() {
+void Server::create_socket()
+{
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (this->m_fd == -1)
-	{
-		throw std::runtime_error("error: socket() for " + m_key + " failed");
-	}
+    if (this->m_fd == -1)
+    {
+        throw std::runtime_error("error: socket() for " + m_key + " failed");
+    }
 }
 
 // TODO : make code more readable
-void Server::bind_address() {
+void Server::bind_address()
+{
     int opt = 1;
     if (setsockopt(this->m_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0)
-	{
+    {
+        close(m_fd);
         throw std::runtime_error("error: setsockopt() failed on " + m_key);
-	}
+    }
     if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), sizeof(m_addr)) != 0)
-	{
+    {
+        close(m_fd);
         throw std::runtime_error("error: bind() failed on " + m_key);
-	}
+    }
 }
 
-void Server::start_listening() {
+void Server::start_listening()
+{
     if (listen(this->m_fd, SOMAXCONN) != 0)
-	{
+    {
+        close(m_fd);
         throw std::runtime_error("error: listen() for " + m_key + " failed");
     }
 }
 
 // return 0 on success -1 if failed
-int Server::accept_connection() {
+int Server::accept_connection()
+{
     int clientFd;
 
-	// TODO : catch client infos
-    clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC);
-    
+    // TODO : catch client infos
+    clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
+
     return clientFd;
 }
 
-Epoll::EventState Server::handle_event(uint32_t event) {
+Epoll::EventState Server::handle_event(uint32_t event)
+{
     (void)event;
     int clientFd = accept_connection();
     if (clientFd == -1)
@@ -114,11 +125,12 @@ Epoll::EventState Server::handle_event(uint32_t event) {
         _clientsList.push_back(client);
         client->m_it = --_clientsList.end();
     }
-        return Epoll::ECONTINUE;
+    return Epoll::ECONTINUE;
 }
 
-std::string Server::craft_key(const std::string &ip, int port) {
-	std::stringstream ssKey;
+std::string Server::craft_key(const std::string &ip, int port)
+{
+    std::stringstream ssKey;
     addrinfo hints, *res;
 
     std::memset(&hints, 0, sizeof(hints));
@@ -138,7 +150,7 @@ std::string Server::craft_key(const std::string &ip, int port) {
             throw std::runtime_error("error: inet_ntop() failed for " + ip);
         ssKey << &buffer[0];
         ssKey << ':';
-		ssKey << port;
+        ssKey << port;
         freeaddrinfo(res);
     }
     return ssKey.str();

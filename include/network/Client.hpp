@@ -41,6 +41,8 @@ class Client : public AFd
     Epoll::EventState _receive_data();
     Epoll::EventState _send_data();
     const ServerConfig *_get_config(const std::string &host);
+
+    void _reset();
 };
 
 #endif

@@ -21,7 +21,7 @@ public:
   sockaddr_in m_addr;
   const int m_port;
 
-  Server(const std::string &key, const std::string &ip, short port, const ServerConfig *config, Epoll &epoll, std::list<Client *> &clientsList);
+  Server(const std::string &key, const std::string &ip, int port, const ServerConfig *config, Epoll &epoll, std::list<Client *> &clientsList);
 
   virtual Epoll::EventState handle_event(uint32_t event);
 

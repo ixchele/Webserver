@@ -12,15 +12,13 @@
 # define MAIN_TIMEOUT 60
 # define CGI_TIMEOUT 6
 
-using std::vector;
-
 //this Multiplexer will manage all servers from config file
 class Multiplexer
 {
 public:
 	std::map <std::string, Server*> m_servers;
 
-  Multiplexer(const vector<ServerConfig> &v_configs);
+  Multiplexer(const std::vector<ServerConfig> &v_configs);
 
 	void startup();
 	void events_loop();
