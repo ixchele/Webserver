@@ -167,6 +167,8 @@ void	HttpRequest::parse(const std::string &raw_data) {
 	}
 }
 
+bool HttpRequest::isBufferEmpty() { return _buffer.empty(); }
+
 void	HttpRequest::setState(ParseState state) {
 	_state = state;
 }

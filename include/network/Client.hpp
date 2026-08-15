@@ -36,7 +36,7 @@ class Client : public AFd
     HttpRequest _request;
     // RequestHandler *_rqst_handler;
     HttpResponse _response;
-    ssize_t _bytes_sent;
+    ssize_t _headers_bytes_sent;
 
     Epoll::EventState _receive_data();
     Epoll::EventState _send_data();
