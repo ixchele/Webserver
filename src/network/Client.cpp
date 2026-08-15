@@ -10,7 +10,7 @@
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
-      m_configs(configs), _epoll(epoll), _request(fd), _headers_bytes_sent(0) //, _response(_request, fd)
+      m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0) //, _response(_request, fd)
 {
 }
 
@@ -64,18 +64,22 @@ Epoll::EventState Client::_send_data()
         std::string headers = _response.getHeaderBuffer();
 
         {
-            _headers_bytes_sent += send(m_fd, headers.c_str() + _headers_bytes_sent, headers.size() - _headers_bytes_sent, 0);
-            if (_headers_bytes_sent == -1 || _headers_bytes_sent == 0)
+            ssize_t headers_bytes_sent = send(m_fd, headers.c_str() + _bytes_sent, headers.size() - _bytes_sent, 0);
+            if (headers_bytes_sent == -1 || headers_bytes_sent == 0)
             {
-                LOG_WARN << "send() returned " << _headers_bytes_sent << " on client with fd " << m_fd;
+                LOG_WARN << "send() returned " << headers_bytes_sent << " on client with fd " << m_fd;
                 return Epoll::EERROR;
             }
+            _bytes_sent += headers_bytes_sent;
         }
 
-        if (static_cast<size_t>(_headers_bytes_sent) == headers.size())
+        if (static_cast<size_t>(_bytes_sent) == headers.size())
         {
             if (_response.hasFile())
+            {
+                _bytes_sent = 0;
                 m_state = CSENDING_BODY;
+            }
             else
                 m_state = CFINISHED;
         }
@@ -83,12 +87,11 @@ Epoll::EventState Client::_send_data()
         {
             return Epoll::ECONTINUE;
         }
-        LOG_DEBUG << "we sent " << _headers_bytes_sent << " bytes of headers to client with fd " << m_fd;
     }
     if (m_state == CSENDING_BODY)
     {
         char buffer[APP_BUFFER_SIZE + 1];
-        ssize_t body_bytes_sent = 0;
+        _bytes_sent = 0;
         _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
         ssize_t bytes_read = _response.getFileStream().gcount();
         if (bytes_read == 0)
@@ -96,17 +99,19 @@ Epoll::EventState Client::_send_data()
         else
         {
 
-            body_bytes_sent += send(m_fd, buffer, bytes_read, 0);
+            ssize_t body_bytes_sent = send(m_fd, buffer, bytes_read, 0);
             if (body_bytes_sent == -1 || body_bytes_sent == 0)
             {
                 LOG_WARN << "send() returned " << body_bytes_sent << " on client with fd " << m_fd;
                 return Epoll::EERROR;
             }
-            _response.getFileStream().seekg(body_bytes_sent);
             if (_response.getFileStream().eof())
                 m_state = CFINISHED;
             else
+            {
+                // _response.getFileStream().seekg(_response.getFileStream(). +body_bytes_sent);
                 return Epoll::ECONTINUE;
+            }
         }
     }
     if (m_state == CFINISHED && _request.getHeader("connection") == "keep-alive")
@@ -171,7 +176,7 @@ void Client::_reset()
 {
     _request.reset();
     _response.reset();
-    _headers_bytes_sent = 0;
+    _bytes_sent = 0;
 }
 
 Client::~Client()

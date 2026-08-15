@@ -194,6 +194,8 @@ std::string	RequestHandler::_guessMimeType(const std::string &path) const {
 	if (ext == ".json")						return "application/json";
 	if (ext == ".txt")						return "text/plain";
 	if (ext == ".pdf")						return "application/pdf";
+	if (ext == ".mp4")						return "video/mp4";
+	if (ext == ".mp3")						return "audio/mpeg";
 
 	return "application/octet-stream";
 }
