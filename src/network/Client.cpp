@@ -79,38 +79,36 @@ Epoll::EventState Client::_send_data()
                 m_state = CSENDING_BODY;
             else
                 m_state = CFINISHED;
-            _bytes_sent = 0;
         }
         else
         {
             return Epoll::ECONTINUE;
         }
+        LOG_DEBUG << "we sent " << _bytes_sent << " headers to client with fd " << m_fd;
     }
     if (m_state == CSENDING_BODY)
     {
-        _bytes_sent = 0;
         char buffer[APP_BUFFER_SIZE + 1];
         ssize_t body_bytes = 0;
         _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
-        if (_response.getFileStream().gcount() == 0)
+        ssize_t bytes_read = _response.getFileStream().gcount();
+        if (bytes_read == 0)
             m_state = CFINISHED;
         else
         {
 
-            body_bytes += send(m_fd, buffer, _response.getFileStream().gcount(), 0);
+            body_bytes += send(m_fd, buffer, bytes_read, 0);
             if (body_bytes == -1 || body_bytes == 0)
             {
                 LOG_WARN << "send() returned " << body_bytes << " on client with fd " << m_fd;
                 return Epoll::EERROR;
             }
-            _bytes_sent += body_bytes;
             if (_response.getFileStream().eof())
                 m_state = CFINISHED;
             else
                 return Epoll::ECONTINUE;
         }
     }
-    LOG_DEBUG << "we sent " << _bytes_sent << " bytes to client with fd " << m_fd;
     if (m_state == CFINISHED && _request.getHeader("Connection") == "keep-alive")
     {
         m_state = CKEEPT_ALIVE;

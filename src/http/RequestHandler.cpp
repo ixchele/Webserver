@@ -41,9 +41,9 @@ void	RequestHandler::handle(void) {
 		// case HTTP_POST:
 		// 	_handlePost(real_path);
 		// 	break;
-		// case HTTP_DELETE:
-		// 	_handleDelete(real_path);
-			// break;
+		case HTTP_DELETE:
+			_handleDelete(real_path);
+			break;
 		default:
 			_buildErrorResponse(HttpStatus::NotImplemented); // NOTE: 501
 			break;

@@ -23,6 +23,8 @@ public:
     int wait(epoll_event *events);
 
 private:
+    Epoll(const Epoll& copy);
+    Epoll& operator=(const Epoll&);
     int m_fd;
 };
 
