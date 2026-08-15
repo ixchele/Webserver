@@ -2,6 +2,7 @@
 *.pdf
 obj/
 playground/
+EngineX/
 compile_flags.txt
 webserv
 AGENTS.md
