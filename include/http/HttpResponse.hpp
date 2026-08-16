@@ -21,6 +21,7 @@ class HttpResponse {
 		const std::string	&getHeaderBuffer(void) const;
 		bool				hasFile(void) const;
 		std::ifstream		&getFileStream(void);
+		int					getFileFd(void) const;
 
 		void reset();
 
@@ -32,6 +33,7 @@ class HttpResponse {
 		std::string	_header_buffer;
 
 		std::ifstream	_file_stream;
+		int				_file_fd;
 		bool			_has_file;
 
 		std::string	_generateStatusLine(void) const;

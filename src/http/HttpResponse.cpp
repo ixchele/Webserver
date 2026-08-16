@@ -1,12 +1,18 @@
 #include "HttpResponse.hpp"
-#include <sstream>
 
-HttpResponse::HttpResponse(void) : _status_code(HttpStatus::OK), _has_file(false) {
+#include <fcntl.h>
+#include <sstream>
+#include <sys/stat.h>
+#include <unistd.h>
+
+HttpResponse::HttpResponse(void) : _status_code(HttpStatus::OK), _file_fd(-1), _has_file(false) {
 }
 
 HttpResponse::~HttpResponse(void) {
 	if (_file_stream.is_open())
 		_file_stream.close();
+	if (_file_fd != -1)
+		close(_file_fd);
 }
 
 void	HttpResponse::setStatusCode(HttpStatus::Code code) {
@@ -24,17 +30,30 @@ void	HttpResponse::setBody(const std::string &body_str) {
 }
 
 bool	HttpResponse::setFileBody(const std::string &filepath) {
-	_file_stream.open(filepath.c_str(), std::ios::binary);
+	struct stat	file_stat;
+	int			fd = open(filepath.c_str(), O_RDONLY);
 
-	if (!_file_stream.is_open())
+	if (fd == -1)
 		return false;
 
-	_file_stream.seekg(0, std::ios::end);
-	size_t size = _file_stream.tellg();
-	_file_stream.seekg(0, std::ios::beg);
+	if (fstat(fd, &file_stat) != 0) {
+		close(fd);
+		return false;
+	}
+
+	if (_file_fd != -1)
+		close(_file_fd);
+	_file_fd = fd;
+
+	_file_stream.open(filepath.c_str(), std::ios::binary);
+	if (!_file_stream.is_open()) {
+		close(_file_fd);
+		_file_fd = -1;
+		return false;
+	}
 
 	_has_file = true;
-	setHeader("Content-Length", _intToString(size));
+	setHeader("Content-Length", _intToString(static_cast<size_t>(file_stat.st_size)));
 
 	return true;
 }
@@ -62,6 +81,10 @@ bool	HttpResponse::hasFile(void) const {
 
 std::ifstream	&HttpResponse::getFileStream(void) {
 	return _file_stream;
+}
+
+int	HttpResponse::getFileFd(void) const {
+	return _file_fd;
 }
 
 std::string	HttpResponse::_intToString(size_t value) const {
@@ -94,6 +117,11 @@ void HttpResponse::reset() {
 	_headers.clear();
 	_body_string.clear();
 	_header_buffer.clear();
-	_file_stream.close();
+	if (_file_stream.is_open())
+		_file_stream.close();
+	if (_file_fd != -1) {
+		close(_file_fd);
+		_file_fd = -1;
+	}
 	_has_file = false;
 }
