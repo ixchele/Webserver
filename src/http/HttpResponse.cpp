@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-HttpResponse::HttpResponse(void) : _status_code(HttpStatus::OK), _file_fd(-1), _has_file(false)
+HttpResponse::HttpResponse(void) : _status_code(HttpStatus::OK), _file_fd(-1), _file_size(0),_has_file(false)
 {
 }
 
@@ -61,7 +61,8 @@ bool HttpResponse::setFileBody(const std::string &filepath)
 	}
 
 	_has_file = true;
-	setHeader("Content-Length", _intToString(static_cast<size_t>(file_stat.st_size)));
+	_file_size = file_stat.st_size;
+	setHeader("Content-Length", _intToString(static_cast<size_t>(_file_size)));
 
 	return true;
 }
