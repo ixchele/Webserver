@@ -17,13 +17,14 @@ int main(int ac, char **av)
 {
 	if (ac != 2)
 		return 1;
-	Logger::getInstance().setLogFile("/tmp/Webserv.log");
 
-	TokenList tokenList = tokenizer(av[1]);
-	ConfigParser lexer(tokenList);
-	std::vector<ServerConfig> v_configs;
 	try
 	{
+		Logger::getInstance().setLogFile("/tmp/Webserv.log");
+
+		TokenList tokenList = tokenizer(av[1]);
+		ConfigParser lexer(tokenList);
+		std::vector<ServerConfig> v_configs;
 		v_configs = lexer.parse();
 		// std::cout << *v_configs[0];
 
