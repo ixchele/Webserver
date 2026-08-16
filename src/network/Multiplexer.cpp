@@ -22,9 +22,18 @@ Multiplexer::Multiplexer(const std::vector<ServerConfig> &v_configs)
                 ServersMap::iterator it = m_servers.find(key);
                 if (it == m_servers.end())
                 {
-                    this->m_servers[key] =
-                        new Server(key, v_configs[confs].hosts[hosts], v_configs[confs].listen[ports],
-                                   &v_configs[confs], _epoll, _clientsList);
+                    try
+                    {
+                        this->m_servers[key] =
+                            new Server(key, v_configs[confs].hosts[hosts], v_configs[confs].listen[ports],
+                                       &v_configs[confs], _epoll, _clientsList);
+                        this->m_servers.at(key)->run();
+                    }
+                    catch (...)
+                    {
+                        _deleteServers();
+                        throw;
+                    }
                 }
                 else
                     it->second->m_configs.push_back(&v_configs[confs]);
@@ -127,29 +136,34 @@ void Multiplexer::_handle_timeout()
     }
 }
 
+void Multiplexer::_deleteServers()
+{
+    ServersMap::iterator it;
+    for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
+    {
+        if (it->second != NULL)
+        {
+            _epoll.del_fd(it->second->get_fd());
+            delete it->second;
+        }
+    }
+}
+
+void Multiplexer::_deleteClientsList()
+{
+    Client *client;
+
+    while (!_clientsList.empty())
+    {
+        client = _clientsList.front();
+        _epoll.del_fd(client->get_fd());
+        delete client;
+        _clientsList.pop_front();
+    }
+}
+
 Multiplexer::~Multiplexer()
 {
-    {
-        Client *client;
-
-        while(!_clientsList.empty())
-        {
-            client = _clientsList.front();
-            _epoll.del_fd(client->get_fd());
-            delete client;
-            _clientsList.pop_front();
-        }
-    }
-
-    {
-        ServersMap::iterator it;
-        for (it = m_servers.begin(); it != this->m_servers.end(); ++it)
-        {
-            if (it->second != NULL)
-            {
-                _epoll.del_fd(it->second->get_fd());
-                delete it->second;
-            }
-        }
-    }
+    _deleteClientsList();
+    _deleteServers();
 }

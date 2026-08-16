@@ -37,7 +37,6 @@ Server::Server(const std::string &key, const std::string &ip, int port,
         freeaddrinfo(res);
     }
     m_addr.sin_port = htons(port);
-    run();
 }
 
 Server::~Server()
@@ -72,12 +71,10 @@ void Server::bind_address()
     int opt = 1;
     if (setsockopt(this->m_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0)
     {
-        close(m_fd);
         throw std::runtime_error("error: setsockopt() failed on " + m_key);
     }
     if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), sizeof(m_addr)) != 0)
     {
-        close(m_fd);
         throw std::runtime_error("error: bind() failed on " + m_key);
     }
 }
@@ -86,7 +83,6 @@ void Server::start_listening()
 {
     if (listen(this->m_fd, SOMAXCONN) != 0)
     {
-        close(m_fd);
         throw std::runtime_error("error: listen() for " + m_key + " failed");
     }
 }

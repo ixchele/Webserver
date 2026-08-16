@@ -147,6 +147,7 @@ Epoll::EventState Client::handle_event(uint32_t event)
 
 void Client::handle_timeout()
 {
+    _reset();
     m_state = CTIMEDOUT;
     _request.setErrorCode(HttpStatus::RequestTimeout);
     _request.setState(HttpRequest::ERROR);

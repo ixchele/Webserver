@@ -7,6 +7,7 @@
 # include <vector>
 # include <map>
 # include <list>
+# include <memory>
 
 # define KEEPTALIVE_TIMEOUT 7
 # define MAIN_TIMEOUT 60
@@ -28,6 +29,8 @@ private:
 	std::list<Client *> _clientsList;
 
 	void _handle_timeout();
+	void _deleteServers();
+	void _deleteClientsList();
 };
 
 #endif
