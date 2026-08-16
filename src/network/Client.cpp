@@ -117,6 +117,7 @@ Epoll::EventState Client::_send_data()
     if (m_state == CFINISHED && _request.getHeader("connection") == "keep-alive")
     {
         m_state = CKEEPT_ALIVE;
+        LOG_DEBUG << "Client with fd " << m_fd << " will be keept alive";
         if (_epoll.edit_fd(m_fd, this, EPOLLIN))
             return Epoll::EERROR;
         _reset();
