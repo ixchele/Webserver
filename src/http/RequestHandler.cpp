@@ -119,12 +119,10 @@ void	RequestHandler::_buildErrorResponse(HttpStatus::Code code) {
 		oss << code_int;
 		std::string	code_str = oss.str();
 
-		// TODO: write error message
-
 		std::string	html = "<html>\r\n"
 			"<head><title>" + code_str + " Error</title></head>\r\n"
 			"<body style=\"font-family: Arial, sans-serif; text-align: center; margin-top: 50px;\">\r\n"
-			"    <h1>" + code_str + " - todo: write error message" + "</h1>\r\n"
+			"    <h1>" + code_str + " - " + HttpStatus::codeMessage((HttpStatus::Code)code_int) + "</h1>\r\n"
 			"    <hr style=\"width: 50%;\">\r\n"
 			"    <p>webserv/1.0 (1337)</p>\r\n"
 			"</body>\r\n"

@@ -37,6 +37,7 @@ class Client : public AFd
     // RequestHandler *_rqst_handler;
     HttpResponse _response;
     ssize_t _bytes_sent;
+    off_t _file_offset;
 
     Epoll::EventState _receive_data();
     Epoll::EventState _send_data();

@@ -1,4 +1,5 @@
 #pragma once
+# include <string>
 
 namespace HttpStatus
 {
@@ -56,4 +57,6 @@ namespace HttpStatus
 		GatewayTimeout = 504,
 		HTTPVersionNotSupported = 505
 	};
+
+	std::string codeMessage(HttpStatus::Code code);
 } // namespace HttpStatus

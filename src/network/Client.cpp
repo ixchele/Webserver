@@ -3,14 +3,16 @@
 #include <Client.hpp>
 #include <Logger.hpp>
 #include <Epoll.hpp>
-// #include <Response.hpp>
-#include <iostream>
-#include <unistd.h>
+#include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <unistd.h>
+#include <iostream>
+// #include <Response.hpp>
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
-      m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0) //, _response(_request, fd)
+      m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0),
+      _file_offset(0)
 {
 }
 
@@ -28,7 +30,7 @@ Epoll::EventState Client::_receive_data()
 
     // if (_request.getState() == HttpRequest::REQUEST_LINE)
     // {
-        _request.parse(buffer);
+    _request.parse(buffer);
     // }
     // if (_request.getState() == HttpRequest::HEADERS_COMPLETE)
     // {
@@ -91,27 +93,19 @@ Epoll::EventState Client::_send_data()
     }
     if (m_state == CSENDING_BODY)
     {
-        char buffer[APP_BUFFER_SIZE + 1];
-        _bytes_sent = 0;
-        _response.getFileStream().read(buffer, APP_BUFFER_SIZE);
-        ssize_t bytes_read = _response.getFileStream().gcount();
-        if (bytes_read == 0)
+        ssize_t body_bytes_sent = sendfile(m_fd, _response.getFileFd(), &_file_offset, APP_BUFFER_SIZE);
+        if (body_bytes_sent == 0 && _file_offset == _response.getFileSize())
+            m_state = CFINISHED;
+        else if (body_bytes_sent == -1 || body_bytes_sent == 0)
+        {
+            LOG_WARN << "sendfile() returned " << body_bytes_sent << " on client with fd " << m_fd;
+            return Epoll::EERROR;
+        }
+        if (_file_offset == _response.getFileSize())
             m_state = CFINISHED;
         else
         {
-            ssize_t body_bytes_sent = send(m_fd, buffer, bytes_read, 0);
-            if (body_bytes_sent == -1 || body_bytes_sent == 0)
-            {
-                LOG_WARN << "send() returned " << body_bytes_sent << " on client with fd " << m_fd;
-                return Epoll::EERROR;
-            }
-            if (_response.getFileStream().eof())
-                m_state = CFINISHED;
-            else
-            {
-                // _response.getFileStream().seekg(_response.getFileStream(). +body_bytes_sent);
-                return Epoll::ECONTINUE;
-            }
+            return Epoll::ECONTINUE;
         }
     }
     if (m_state == CFINISHED && _request.getHeader("connection") == "keep-alive")
