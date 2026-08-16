@@ -72,7 +72,12 @@ void Multiplexer::events_loop()
         for (int i = 0; i < readyFds; i++)
         {
             fdObj = static_cast<AFd *>(events[i].data.ptr);
-            LOG_DEBUG << "event " << events[i].events << " came on fd " << fdObj->get_fd();
+            if (events[i].events & EPOLLIN)
+                LOG_DEBUG << "event " << "EPOLLIN" << " came on fd " << fdObj->get_fd();
+            else if (events[i].events & EPOLLOUT)
+                LOG_DEBUG << "event " << "EPOLLOUT" << " came on fd " << fdObj->get_fd();
+            else
+                LOG_DEBUG << "some event came on fd " << fdObj->get_fd();
             if (fdObj->handle_event(events[i].events) != Epoll::ECONTINUE)
             {
                 if (fdObj->get_type() == AFd::CLIENT)

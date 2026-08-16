@@ -79,6 +79,7 @@ Epoll::EventState Client::_send_data()
             {
                 _bytes_sent = 0;
                 m_state = CSENDING_BODY;
+                return Epoll::ECONTINUE;
             }
             else
                 m_state = CFINISHED;
@@ -98,7 +99,6 @@ Epoll::EventState Client::_send_data()
             m_state = CFINISHED;
         else
         {
-
             ssize_t body_bytes_sent = send(m_fd, buffer, bytes_read, 0);
             if (body_bytes_sent == -1 || body_bytes_sent == 0)
             {

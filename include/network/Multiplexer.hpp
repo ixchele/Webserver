@@ -9,9 +9,9 @@
 # include <list>
 # include <memory>
 
-# define KEEPTALIVE_TIMEOUT 7
-# define MAIN_TIMEOUT 60
-# define CGI_TIMEOUT 6
+# define KEEPTALIVE_TIMEOUT 17
+# define MAIN_TIMEOUT 16
+# define CGI_TIMEOUT 16
 
 //this Multiplexer will manage all servers from config file
 class Multiplexer
