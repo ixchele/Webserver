@@ -28,18 +28,7 @@ Epoll::EventState Client::_receive_data()
     }
     buffer[bytes] = '\0';
 
-    // if (_request.getState() == HttpRequest::REQUEST_LINE)
-    // {
-    _request.parse(buffer);
-    // }
-    // if (_request.getState() == HttpRequest::HEADERS_COMPLETE)
-    // {
-    //     _request.parse("");
-    // }
-    // if (_request.getState() == HttpRequest::BODY)
-    // {
-    //     _request.parse("");
-    // }
+    _request.parse(buffer, static_cast<size_t>(bytes));
     if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
     {
         const std::string host = _request.getHeader("host");
