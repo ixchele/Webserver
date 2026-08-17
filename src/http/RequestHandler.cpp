@@ -4,6 +4,7 @@
 #include <sstream>
 #include <Logger.hpp>
 #include <dirent.h>
+#include <fstream>
 
 RequestHandler::RequestHandler(const HttpRequest &request, HttpResponse &response, const ServerConfig &config)
 	: _request(request), _response(response), _config(config), _route(NULL) {
@@ -38,9 +39,9 @@ void	RequestHandler::handle(void) {
 		case HTTP_GET:
 			_handleGet(real_path);
 			break;
-		// case HTTP_POST:
-		// 	_handlePost(real_path);
-		// 	break;
+		case HTTP_POST:
+			_handlePost(real_path);
+			break;
 		case HTTP_DELETE:
 			_handleDelete(real_path);
 			break;
@@ -54,7 +55,11 @@ bool	RequestHandler::_isBodySizeValid(void) const {
 	if (_route->client_max_body_size <= 0)
 		return true;
 
-	if (_request.getContentLength() > static_cast<size_t>(_route->client_max_body_size))
+	size_t	body_size = _request.getBytesReceived();
+	if (_request.getContentLength() > body_size)
+		body_size = _request.getContentLength();
+
+	if (body_size > static_cast<size_t>(_route->client_max_body_size))
 		return false;
 
 	return true;
@@ -274,6 +279,52 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 	_response.setStatusCode(HttpStatus::OK);
 	_response.setHeader("Content-Type", "text/html");
 	_response.setBody(html);
+	_response.build();
+}
+
+void    RequestHandler::_handlePost(const std::string &real_path) {
+	(void)real_path;
+
+	if (_request.getBytesReceived() == 0) {
+		_response.setStatusCode(HttpStatus::NoContent); // 204
+		_response.build();
+		return;
+	}
+
+	const LocationConfig	*loc = dynamic_cast<const LocationConfig *>(_route);
+	if (loc == NULL || loc->upload.empty()) {
+		_response.setStatusCode(HttpStatus::NoContent); // 204
+		_response.build();
+		return;
+	}
+
+	std::string	dir_path = loc->upload;
+	std::string	uri_path = _request.getUri().getPath();
+	std::string	base_name = uri_path;
+	size_t		last_slash = uri_path.find_last_of('/');
+
+	if (last_slash != std::string::npos)
+		base_name = uri_path.substr(last_slash + 1);
+
+	if (base_name.empty() || base_name == "." || base_name == "..")
+		base_name = "upload";
+
+	if (dir_path.length() > 0 && dir_path[dir_path.length() - 1] != '/')
+		dir_path += "/";
+
+	std::string	full_path = dir_path + base_name;
+
+	std::ofstream	out(full_path.c_str(), std::ios::binary | std::ios::trunc);
+	if (!out.is_open()) {
+		_buildErrorResponse(HttpStatus::InternalServerError); // 500
+		return;
+	}
+
+	out.write(_request.getBody().c_str(), static_cast<std::streamsize>(_request.getBody().size()));
+	out.close();
+
+	_response.setStatusCode(HttpStatus::Created); // 201
+	_response.setBody("Upload OK");
 	_response.build();
 }
 
