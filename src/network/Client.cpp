@@ -36,7 +36,8 @@ Epoll::EventState Client::_receive_data()
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
         m_state = CSENDING_HEADERS;
-        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+        if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
+            return Epoll::EERROR;
     }
 
     LOG_DEBUG << "The Request of client on fd " << m_fd << ":"
@@ -162,6 +163,7 @@ void Client::_reset()
     _request.reset();
     _response.reset();
     _bytes_sent = 0;
+    _file_offset = 0;
 }
 
 Client::~Client()

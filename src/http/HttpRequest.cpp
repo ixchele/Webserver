@@ -186,7 +186,10 @@ void	HttpRequest::parse(const char *data, size_t len) {
 			std::string line = _buffer.substr(0, pos);
 
 			if (_state == REQUEST_LINE)
+			{
 				_parseRequestLine(line);
+				_buffer.erase(0, pos + 2);
+			}
 
 			else if (_state == HEADERS) {
 				if (line.empty()) {
