@@ -73,10 +73,9 @@ void Cgi::_setEnv() {
       continue;
 
     std::string env = "HTTP_";
-    for (size_t i = 0; i < n.size(); ++i)
+    for (size_t i = 0; i < nm.size(); ++i)
     {
-      char c = n[i];
-      env += (c == '-') ? '_' : static_cast<char>(::toupper(c));
+      env += (nm[i] == '-') ? '_' : static_cast<char>(::toupper(nm[i]));
     }
     _env.push_back(env + "=" + vl);
   }
