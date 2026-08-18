@@ -1,9 +1,12 @@
 #include <Logger.hpp>
 #include <Cgi.hpp>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <algorithm>
 #include <cstring>
+#include <cstdlib>
+#include <cerrno>
 #include <string>
 #include <map>
 
@@ -45,6 +48,42 @@ void Cgi::_setEnv() {
   _env.push_back("SCRIPT_NAME=" + _request.getUri().getPath());
   _env.push_back("SCRIPT_FAILENAME=" + _script_path);
   _env.push_back("QUERY_STRING=" + _request.getUri().getQuery());
+
+  if (_body_fd != -1)
+  {
+    struct stat st;
+    if (fstat(_body_fd, &st) == 0)
+    {
+      std::ostringstream oss;
+      oss << st.st_size;
+      _env.push_back("CONTENT_LENGTH=" + oss.str());
+    }
+  }
+  std::string content_type = _request.getHeader("content-type");
+  if (content_type != "")
+    _env.push_back("CONTENT_TYPE=" + content_type);
+
+  std::map<std::string, std::string>::const_iterator it;
+  for (it = _request.getHeaders().begin(); it != _request.getHeaders().end(); ++it)
+  {
+    const std::string &nm = it->first;
+    const std::string &vl = it->second;
+
+    if (nm == "content-length" || nm == "content-type")
+      continue;
+
+    std::string env = "HTTP_";
+    for (size_t i = 0; i < n.size(); ++i)
+    {
+      char c = n[i];
+      env += (c == '-') ? '_' : static_cast<char>(::toupper(c));
+    }
+    _env.push_back(env + "=" + vl);
+  }
+
+  for (size_t i = 0; i < _env.size(); ++i)
+    _cenv.push_back(_env[i].c_str());
+  _cenv.push_back(NULL);
 }
 
 pid_t Cgi::getPid() const {
