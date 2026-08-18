@@ -1,35 +1,56 @@
+#ifndef CGI_HPP
+#define CGI_HPP
+
 #include <HttpRequest.hpp>
-#include <Epoll.hpp>
-#include <AFd.hpp>
 #include <vector>
 #include <string>
+#include <ctime>
 
 #define PIPE_BUFFER_SIZE 65536 // 64 Kb
 
-class Cgi : public AFd
+class Cgi
 {
 public:
-  enum e_state {BUILDING, EXECUTED, FINISHED, ERROR};
+  enum e_out
+  {
+    MORE,
+    DONE,
+    FAIL
+  };
 
-  Cgi(HttpRequest &request);
+  Cgi(HttpRequest &request, const std::string &interpreter,
+      const std::string &script_path, int body_fd);
   ~Cgi();
 
-  int get_pid(void);
-
   int execute();
-  int waiter();
+  e_out readOutput();
+  void killChild();
 
-  virtual Epoll::EventState handle_event(uint32_t event);
+  int getReadEnd() const;
+  pid_t getPid() const;
+  bool exitedCleanly() const;
+  const std::string &getOutput() const;
 
 private:
   HttpRequest &_request;
-  pid_t _pid;
-  int _status;
-  int _outputPipe[2];
-  std::string _buffer;
-  std::vector <std::string> _env;
-  std::vector <const char *> _cenv;
-  std::vector <const char *> _cargv;
+  std::string _interpreter;
+  std::string _script_path;
+  int _body_fd;
 
-  void _set_env();
+  int _outputPipe[2];
+  int _status;
+  pid_t _pid;
+  bool _reaped;
+  time_t _start;
+
+  std::string _buffer;
+  std::vector<std::string> _env;
+  std::vector<const char *> _cenv;
+  std::vector<const char *> _cargv;
+
+  void _setArgv();
+  void _setEnv();
+  void _reap();
 };
+
+#endif

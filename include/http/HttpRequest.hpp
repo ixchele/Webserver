@@ -31,6 +31,7 @@ class HttpRequest {
 		ParseState			getState() const;
 		HttpStatus::Code	getErrorCode() const;
 		Method				getMethod() const;
+		std::string		getMethodStr() const;
 		const Uri			&getUri() const;
 		const std::string	&getVersion() const;
 		const std::string	&getTmpFilename() const;

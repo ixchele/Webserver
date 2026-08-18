@@ -6,7 +6,7 @@
 class AFd
 {
   public:
-    enum Type {SERVER, CLIENT, CGI};
+    enum Type {SERVER, CLIENT};
     AFd(int fd, Type type);
 
     int get_fd() const;
