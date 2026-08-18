@@ -1,224 +1,169 @@
-# CGI — the network side, explained end to end
+# CGI — the network side, explained end to end (v2)
 
-This file is your personal study guide + code reference for the **CGI part of the
-network layer**. Your teammate tells you "*this request is CGI*" (they detect the
-extension / `cgi_pass` on the request side). Your job starts there:
+You pushed back, and you were right. This version is rebuilt around **your** plan:
 
-1. spawn the interpreter as a **child process**,
-2. give it the standard CGI **environment variables**,
-3. **read whatever it writes to stdout** through a pipe, without ever blocking the server,
-4. track it, **time it out** if it is slow or hangs,
-5. **turn its raw bytes into a full HTTP response** and hand it to the normal send path.
+* the **Client owns the CGI** and is the only object epoll ever knows about per
+  connection,
+* the CGI is a **plain helper class — NOT an `AFd`**,
+* the request **body** is a temp file your teammate gives you; you feed it to the
+  child's stdin via `dup2`,
+* the pipe read end is registered in `epoll` **pointing at the Client**,
+* on `EPOLLOUT` on the client socket, whatever is in the response buffer is sent by
+  your existing `_send_data()`.
 
-Everything below respects your constraints: **no POST**, **no request-side CGI
-detection**. It only covers *execution → output → response*.
-
----
-
-## 1. The big picture
-
-Your server is **single-threaded and event-driven** (one `epoll_wait` loop in
-`Multiplexer::events_loop()`). A CGI script is a *separate process* that can run for
-seconds. **You can never sit and wait for it**, or the whole server freezes and every
-other client times out.
-
-The trick: the CGI script is a **child process** talking to you through an **anonymous
-pipe**. Its `stdout` is the pipe's *write end*. You put the pipe's *read end* into
-`epoll` like any other fd. While the script runs, your event loop keeps serving everyone
-else. When the script writes something, `epoll` wakes you up, you drain the bytes, and
-go back to the loop.
-
-```
-your server (one process, one epoll loop)
-   │
-   │  fork()
-   ▼
- +--------+   pipe(_outputPipe)   +---------------+
- | server |  _outputPipe[1]  ───►  child process   |
- | parent |       (child stdout)  | (python3, etc) |
- +--------+                       +---------------+
-   │  ▲
-   │  │  _outputPipe[0]  (read end)
-   │  │  registered in epoll as EPOLLIN
-   └──┘
-```
-
-> Mental rule: **a CGI request is just a client whose response source is a pipe
-> instead of a file on disk.** Before CGI your `Client` read from a socket and built a
-> response. Now it "reads from a process" and still builds the same response.
-> Everything you already know about sending (`Client::_send_data`) is unchanged.
+Your "where do I start, what do they give me, how do I get a working CGI today" —
+answered, function by function, in this file.
 
 ---
 
-## 2. The syscalls you must truly understand
+## 1. Verdict on your questions (be your own harshest critic)
 
-| syscall | what it does | why CGI needs it |
+| Your idea | Verdict | Why |
 |---|---|---|
-| `pipe(fds)` | creates two connected fds: `fds[1]` written → appears at `fds[0]` | child's stdout goes into the pipe, parent reads it from the other end |
-| `fork()` | clones your process. Return value is `0` in the **child**, the child's PID in the **parent**, `-1` on failure | creates the CGI process |
-| `dup2(a, b)` | copies fd `a` into fd `b` (closing `b` first) | make the script's `stdout` **be** the pipe write end |
-| `execve(path, argv, envp)` | *replaces* the current program with another one. Returns only on failure | turns the cloned child into `python3` (or any interpreter) |
-| `waitpid(pid, &st, flags)` | gets the child's exit status. `WNOHANG` returns `0` if still running | **reap zombies** and read exit code |
-| `kill(pid, SIGKILL)` | hard-kills a process | CGI timeout: kill the script |
-| `fcntl(fd, F_SETFL, O_NONBLOCK)` | makes reads on the fd non-blocking | never let a read stall the event loop |
-| `_exit(code)` | exits without touching stdio buffers | child-side "exec failed" exit (see §8) |
+| "Why does the CGI inherit from `AFd` if the Client manages it?" | **You are right: drop it.** | The skeleton made `Cgi : public AFd` because a previous design wanted epoll to reference the `Cgi` directly. In **your** design epoll references the **Client** (pointer trick). The `Cgi` is just a data holder + process wrapper: it must not be an AFd. First proof: your `Multiplexer::events_loop()` deletes `fdObj` and calls `del_fd(get_fd())` on cleanup — a bare `Cgi` in that loop would need the Multiplexer to know *which Client owns it*. Making the Client own it avoids touching the Multiplexer at all. |
+| "Add `cgi outputpipe[0]` in epoll with the object of the client" | **Correct. This is the trick.** `Epoll::add_fd(fd, ptr, events)` only stores `ptr` in `ev.data.ptr`. Nothing forces `fd` to belong to `ptr`. So the pipe event wakes up the **Client**, and `Client::handle_event()` routes it by `m_state`. |
+| "CGI reads the client body from a file fd my friend gives me" | **Correct, and that is the professional way** (nginx does exactly this: request body → temp file → CGI stdin). You also need `lseek(fd, 0, SEEK_SET)` before `dup2` (your friend leaves the cursor at the end after writing), and for GET/DELETE with no body the fd is `-1` → stdin from `/dev/null` (immediate EOF). The subject also insists the **CGI must run in its own directory**, so the child `chdir()`s into the script's folder before `execve`. |
+| "When `EPOLLOUT` fires on the client and the buffer has data, I send it" | **Correct, and you already wrote that code.** It's `Client::_send_data()`: `CSENDING_HEADERS` sends `_response.getHeaderBuffer()`. Your only job is to *build* that response from the CGI bytes and set `m_state = CSENDING_HEADERS`. Zero changes in the send path. |
+| "The CGI timeout is handled inside the Client" | **Correct.** The Client does the work; the Multiplexer just needs 2 lines so a stale client in `CEXECUTING_CGI` is *dispatched* to the Client instead of being deleted (see §8). And you need one self-check inside `Client::handle_event` for scripts that keep producing output forever (§8.3). |
 
-### fork() — the memory picture
+Your instinct is professional. Everything below is that plan, made correct against the
+subject and hardened against the failure cases.
 
-`fork()` copies the parent. Both processes continue running the **exact same code** from
-the same line. The only difference at first is the return value:
+---
+
+## 2. Rules from the subject that FORCE the design
+
+I read `en.subject.pdf` — 4 rules shape everything:
+
+1. **"Checking the value of errno to adjust the server behaviour is strictly forbidden
+   after performing a read or write operation."**
+   → After `read()` on the pipe you will **never** look at `errno` (no `EAGAIN` checks,
+   no `EINTR` retries). This is possible because of rule 2.
+2. **"I/O that can wait for data (sockets, pipes/FIFOs, etc.) must be non-blocking and
+   driven by a single poll(). Calling read/recv or write/send ... without prior
+   readiness will result in a grade of 0."**
+   → The pipe is set `O_NONBLOCK`. But you **only call `read()` right after epoll said
+   `EPOLLIN`**, and you read **exactly once per event**. With level-triggered epoll:
+   * if data was there at `epoll_wait()` time, it is still there when you read it (only
+     you can consume it), so `read()` returns `> 0` — no `EAGAIN` possible in practice;
+   * if the child closed stdout, `read()` returns `0` (EOF) — no blocking;
+   * if it ever returns `-1` anyway (rare race/signal), you treat it as error and give
+     up that connection. You never inspect `errno`.
+
+   That is exactly how your existing `Client::_receive_data()` already handles `recv()`:
+   `bytes == -1 || bytes == 0 -> EERROR`, no `errno`. Match that style.
+3. **"The full request and arguments provided by the client must be available to the
+   CGI … CGI should be run in the correct directory … It should support at least one
+   CGI (php-CGI, Python…)."**
+   → Full environment (all headers → `HTTP_*` variables), and the child `chdir()`s to
+   the script's directory before `execve`.
+4. **"For chunked requests, your server needs to un-chunk them, the CGI will expect EOF
+   … if no content_length is returned from the CGI, EOF will mark the end of the
+   returned data."**
+   → **Un-chunking is your teammate's job** (they already parse the request; the temp
+   file they give you is the *unchunked* body). For the CGI output, you read until EOF;
+   you never require a Content-Length from the script, you compute it yourself.
+
+Other notes: `errno` **is** allowed after `pipe`, `fork`, `execve`, `waitpid`, `kill`
+(it is literally in the subject's allowed functions list). Only `read`/`write`/`send`/
+`recv` are off-limits. And `fcntl(F_SETFL, O_NONBLOCK)` is allowed.
+
+---
+
+## 3. Who owns what — the interface with your teammate
+
+Your teammate (request side) does:
+
+1. parses the whole request (headers + body, un-chunking if needed),
+2. writes the body into a temp file and hands you a **readable** fd to it (`O_RDONLY`
+   or `O_RDWR`), or `-1` when there is no body,
+3. decides "this is CGI" and looks up the interpreter from `cgi_pass` (e.g.
+   `/usr/bin/python3`),
+4. calls **your** entry point:
 
 ```cpp
-pid_t pid = fork();
-if (pid == 0) {
-    // I am the CHILD. pid == 0 here.
-    // My job: turn into the interpreter and die when done.
-} else if (pid > 0) {
-    // I am the PARENT. pid == child's PID here.
-    // My job: read the pipe until EOF, then waitpid().
-} else {
-    // fork failed. errno explains why.
-}
+// somewhere in the client's flow, after the request is fully parsed:
+client->start_cgi(interpreter, script_path, body_fd);
 ```
 
-> The child is a **copy** of the parent. That means it also inherits every fd the server
-> has open (listen sockets, client sockets, the epoll fd...). You must close the fds the
-> child is not allowed to touch or keep. This is covered in §5.
+`interpreter`  = `_route->cgi_pass[extension]`  (from `cgi_pass .py /usr/bin/python3;`)
 
-### The pipe contract
+`script_path`  = the resolved path of the requested script on disk (your buddy already
+                solves this; it is the `real_path` your `RequestHandler` computes)
 
-A pipe is a byte stream. There is **no message boundary** — bytes are concatenated.
-**EOF is only delivered when `every` write end is closed.** This single fact drives the
-whole design:
+`body_fd`      = fd of the body temp file, or `-1`
 
-* the child must dup its stdout onto `_outputPipe[1]` and close its own copy of
-  `_outputPipe[0]` and `_outputPipe[1]` so that when the child *exits*, the write end is
-  gone → the read end returns `0` (EOF) → you know the script is done.
-* the **parent** must close its copy of `_outputPipe[1]` **immediately** after fork, for
-  the same reason — if the parent kept the write end open, EOF would never arrive.
-
-### waitpid / zombies
-
-When a child exits it becomes a **zombie** (a placeholder in the process table) until
-somebody `waitpid`s it. If you never do, zombies pile up. Worse, if the parent exits,
-the child is *orphaned*. So:
-
-* at EOF → `waitpid(pid, &st, 0)` (blocking is safe here, the child is about to die;
-  the pipe already returned EOF, so there is no deadlock).
-* on timeout → `kill(pid, SIGKILL)` then `waitpid(pid, &st, 0)`.
-
-`WNOHANG` ("wait no hang") is for the case where you want to check without blocking:
-`waitpid(pid, &st, WNOHANG)` returns `0` if the child is still alive.
+Your part (network side) starts at `start_cgi` and ends when the response reaches
+`_send_data()`. Everything in this file is yours.
 
 ---
 
-## 3. The full journey of one CGI request (step by step)
+## 4. The Cgi class — a plain class, no AFd
 
-1. Your teammate detects the request is CGI and calls your network-side function
-   `Client::start_cgi(interpreter, script_path)`. (`interpreter` comes from
-   `cgi_pass` in the config, e.g. `/usr/bin/python3`; `script_path` is the resolved
-   path of the `.py` file on disk.)
-2. `start_cgi` constructs a `Cgi` object. The constructor fills the **environment
-   vector** (§6) and builds `argv = { "/usr/bin/python3", "/path/script.py", NULL }`.
-3. `execute()`:
-   - `pipe(_outputPipe)`,
-   - `fork()`,
-   - **child**: bind stdout→pipe write end, stdin→/dev/null, stderr→/dev/null, close
-     everything unused, `execve(...)`; if it returns, `_exit(127)`,
-   - **parent**: close write end, set `_outputPipe[0]` non-blocking, remember start
-     time, register `_outputPipe[0]` in epoll (pointer = the **Client**, §7).
-4. `Client` is now in state `CEXECUTING_CGI`. The event loop keeps running and serving
-   every other client.
-5. `epoll` fires `EPOLLIN` on the pipe read end → `Multiplexer` calls
-   `Client::handle_event(...)` (the pointer-trick) → Client sees its state is
-   `CEXECUTING_CGI` → calls `_cgi->handle_event(...)`:
-   - bytes available → `read()` them, append to `_buffer`, return `ECONTINUE` (keep
-     waiting for more),
-   - `read()` returns `0` → EOF → `waitpid()` the child → return `EFINISHED`.
-6. Client removes the pipe fd from epoll, asks the `Cgi` object for its exit status and
-   its raw bytes, then builds the HTTP response from them (§7 "parsing").
-7. `m_state = CSENDING_HEADERS`, re-arm the client socket for `EPOLLOUT`. From here on
-   your existing `_send_data()` does everything (the body is already inside the
-   response header buffer — `HttpResponse::build()` puts headers *and* body in one
-   string).
-8. If the script is alive and silent after `CGI_TIMEOUT` (16 s, already defined in
-   `Multiplexer.hpp`), the server `kill`s it, `waitpid`s it, and answers `504 Gateway
-   Timeout`.
-
----
-
-## 4. Cgi.hpp — the interface
+### 4.1 Cgi.hpp
 
 ```cpp
 #ifndef CGI_HPP
 # define CGI_HPP
 
 # include <HttpRequest.hpp>
-# include <Epoll.hpp>
-# include <AFd.hpp>
 # include <string>
 # include <vector>
 # include <ctime>
 
-# define PIPE_BUFFER_SIZE 65536  // how many bytes we read from the pipe per call
+# define PIPE_BUFFER_SIZE 65536   // bytes read per pipe event
 
-class Cgi : public AFd
+class Cgi
 {
 public:
+    enum e_out { MORE, DONE, FAIL };   // what read_output() returns
+
     Cgi(HttpRequest &request, const std::string &script_path,
-        const std::string &interpreter);
+        const std::string &interpreter, int body_fd);
     ~Cgi();
 
-    int   execute();                  // 0 ok, -1 fail (fork/pipe failed)
-    int   get_pid() const;
+    int   execute();              // fork + exec; 0 ok, -1 fail
+    e_out read_output();          // drain the pipe; called on EPOLLIN only
+    void  kill_child();           // SIGKILL + waitpid  (timeout / abort)
 
-    bool  exited_cleanly() const;     // WIFEXITED && exit code 0
-    time_t started_at() const;        // for the timeout logic
-
-    const std::string &get_output() const;  // whatever the script wrote to stdout
-
-    void  kill_child();               // SIGKILL + waitpid (called on timeout / abort)
-
-    virtual Epoll::EventState handle_event(uint32_t event);
+    int     get_pipe_fd() const;  // the fd your Client registers in epoll
+    int     get_pid() const;
+    bool    exited_cleanly() const;         // WIFEXITED && exit code == 0
+    const std::string &get_output() const;  // the CGI's stdout, fully read
 
 private:
-    HttpRequest            &_request;      // must outlive the CGI (the Client owns it)
-    std::string             _script_path;
-    std::string             _interpreter;
+    HttpRequest              &_request;    // reference, the Client owns the request
+    std::string               _script_path;
+    std::string               _interpreter;
+    int                       _body_fd;    // -1 => no request body
 
-    int                     _outputPipe[2];
-    int                     _status;       // waitpid status
-    pid_t                   _pid;
-    bool                    _reaped;
-    time_t                  _start;
+    int                       _outputPipe[2];
+    int                       _status;     // waitpid status
+    pid_t                     _pid;
+    bool                      _reaped;     // child already waitpid()ed ?
+    time_t                    _start;      // when execution began (timeout)
 
-    std::string             _buffer;               // accumulated stdout
-    std::vector<std::string> _env;                 // owns every string
-    std::vector<const char *> _cenv;               // points into _env strings, + NULL terminator
-    std::vector<const char *> _cargv;              // { interpreter, script, NULL }
+    std::string               _buffer;     // accumulated stdout bytes
+    std::vector<std::string>  _env;        // owns every string
+    std::vector<const char *> _cenv;       // points into _env, ended with NULL
+    std::vector<const char *> _cargv;      // { interpreter, script, NULL }
 
-    void _set_environment();
     void _set_argv();
-    void _reap();                                 // waitpid, marks _reaped
+    void _set_environment();
+    void _reap();
 };
 
 #endif
 ```
 
-Notes:
+> Very deliberate choices:
+> * **No `AFd` base.** The Client is the epoll participant. `Cgi` is a value-like
+>   wrapper: spawn, read, kill, report.
+> * `_env` is `std::vector<std::string>` and `_cenv` is built **after** `_env` is fully
+>   filled (see §4.4 for the pointer-lifetime bug that destroys this if built too early).
+> * `Cgi` returns its own enum; it no longer needs to include `Epoll.hpp`.
 
-* `Cgi` **is an `AFd`**. It inherits `m_fd`, `get_fd()`, `get_type()` (which must be
-  `AFd::CGI` — the enum already exists) and the virtual `handle_event`.
-* `HttpRequest &_request` is a **reference** because the Client already owns it and it
-  must survive the CGI. Do **not** copy the request.
-* `_cenv` (the `char **envp` array) must be terminated by `NULL`. `execve` reads it
-  until it finds `NULL`.
-
----
-
-## 5. Cgi.cpp — the implementation (study this carefully)
-
-### 5.1 Constructor + argv + env
+### 4.2 Constructor + argv
 
 ```cpp
 #include <Cgi.hpp>
@@ -226,16 +171,18 @@ Notes:
 #include <cstring>
 #include <cerrno>
 #include <cstdlib>
+#include <sstream>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
 
 Cgi::Cgi(HttpRequest &request, const std::string &script_path,
-         const std::string &interpreter)
-    : AFd(-1, AFd::CGI),
-      _request(request),
+         const std::string &interpreter, int body_fd)
+    : _request(request),
       _script_path(script_path),
       _interpreter(interpreter),
+      _body_fd(body_fd),
       _status(0),
       _pid(-1),
       _reaped(false),
@@ -244,88 +191,95 @@ Cgi::Cgi(HttpRequest &request, const std::string &script_path,
     _set_argv();
     _set_environment();
 }
-```
 
-```cpp
 void Cgi::_set_argv()
 {
-    // execve wants: argv[0]=the program you run, argv[1..]=its arguments.
-    // For "python3 script.py" that means { "/usr/bin/python3", "script.py", NULL }.
+    // config: cgi_pass .py /usr/bin/python3
+    // so argv = { "/usr/bin/python3", "/www/script.py", NULL }
     _cargv.push_back(_interpreter.c_str());
     _cargv.push_back(_script_path.c_str());
     _cargv.push_back(NULL);
 }
 ```
 
-> **Why `argv[0]` is the interpreter, not the script.** `cgi_pass .py /usr/bin/python3`
-> means "execute `.py` files with `/usr/bin/python3`". So `execve` runs
-> `/usr/bin/python3` and passes the script as its first argument. You could also rely on
-> the script's shebang line, but then the interpreter comes from the file itself, which
-> is fragile. Passing it explicitly (what nginx/Apache do) is cleaner and matches your
-> config model.
+Why `argv[0]` is the interpreter, not the script: `execve` loads a *program*; the
+program needs the script as its argument. You are running *python3*, not the script.
+(The script's shebang line is ignored because python3 is the program.)
 
-### 5.2 Environment variables (CGI/1.1)
-
-CGI/1.1 defines a fixed list of variables a server must export. The rule for headers:
-`Content-Type:` becomes `CONTENT_TYPE`, `Host:` becomes `HTTP_HOST`, every `-` becomes
-`_` and letters are uppercased. **Request-specific CGI variables always win** over
-`HTTP_CONTENT_TYPE` style duplicates, so those two are special-cased.
+### 4.3 Environment (CGI/1.1)
 
 ```cpp
 void Cgi::_set_environment()
 {
-    // --- variables required by CGI/1.1 (GET only — no POST handling here) ---
+    // --- fixed CGI/1.1 variables ---
     _env.push_back("GATEWAY_INTERFACE=CGI/1.1");
     _env.push_back("SERVER_PROTOCOL=HTTP/1.1");
     _env.push_back("SERVER_SOFTWARE=webserv/1.0");
-    _env.push_back("SERVER_NAME=" + _request.getHeader("host")); // from Host: header
-    _env.push_back("SERVER_PORT=80");                            // from config, or parse Host:
-    _env.push_back("REQUEST_METHOD=" + _method_to_string(_request.getMethod()));
+
+    std::string host = _request.getHeader("host");       // e.g. "localhost:8080"
+    std::string name = host, port = "80";
+    size_t colon = host.find(':');
+    if (colon != std::string::npos)
+    {
+        name = host.substr(0, colon);
+        port = host.substr(colon + 1);
+    }
+    _env.push_back("SERVER_NAME=" + name);
+    _env.push_back("SERVER_PORT=" + port);
+
+    _env.push_back("REQUEST_METHOD=" + _method_str(_request.getMethod()));
     _env.push_back("REQUEST_URI=" + _request.getUri().getOriginal());
     _env.push_back("SCRIPT_NAME=" + _request.getUri().getPath());
     _env.push_back("SCRIPT_FILENAME=" + _script_path);
     _env.push_back("QUERY_STRING=" + _request.getUri().getQuery());
 
-    // content-length / content-type are *CGI* variables, not HTTP_* ones.
-    // We forward them only if the request actually carried them.
-    if (_request.getHeader("content-length") != "")
-        _env.push_back("CONTENT_LENGTH=" + _request.getHeader("content-length"));
+    // --- the body: CONTENT_LENGTH from the temp file, CONTENT_TYPE from the request
+    if (_body_fd != -1)
+    {
+        struct stat st;
+        if (fstat(_body_fd, &st) == 0)
+        {
+            std::ostringstream oss;
+            oss << st.st_size;
+            _env.push_back("CONTENT_LENGTH=" + oss.str());
+        }
+    }
     if (_request.getHeader("content-type") != "")
         _env.push_back("CONTENT_TYPE=" + _request.getHeader("content-type"));
 
-    // --- every other request header becomes an HTTP_* variable ---
+    // --- every remaining header becomes HTTP_* (dash -> underscore, UPPERCASE) ---
     std::map<std::string, std::string>::const_iterator it;
     for (it = _request.getHeaders().begin(); it != _request.getHeaders().end(); ++it)
     {
-        const std::string &name  = it->first;
-        const std::string &value = it->second;
+        const std::string &n = it->first;   // already lowercased by HttpRequest
+        const std::string &v = it->second;
 
-        if (name == "content-length" || name == "content-type")
-            continue; // already set above, and CGI forbids HTTP_CONTENT_* duplicates
+        if (n == "content-length" || n == "content-type")
+            continue;                       // they are CONTENT_*, never HTTP_CONTENT_*
 
-        std::string var = "HTTP_";
-        for (size_t i = 0; i < name.size(); ++i)
+        std::string env = "HTTP_";
+        for (size_t i = 0; i < n.size(); ++i)
         {
-            char c = name[i];
-            var += (c == '-') ? '_' : static_cast<char>(::toupper(c));
+            char c = n[i];
+            env += (c == '-') ? '_' : static_cast<char>(::toupper(c));
         }
-        _env.push_back(var + "=" + value);
+        _env.push_back(env + "=" + v);
     }
 
-    // --- THEN build the char** table. NEVER build it while you are still
-    //     pushing to _env (see §8: the dangling-pointer trap) ---
+    // build the char** table ONLY once _env will never grow again:
     for (size_t i = 0; i < _env.size(); ++i)
         _cenv.push_back(_env[i].c_str());
     _cenv.push_back(NULL);
 }
 ```
 
-And the tiny helper:
+And the tiny method-name helper:
 
 ```cpp
-std::string Cgi::_method_to_string(HttpRequest::Method m)
+std::string Cgi::_method_str(HttpRequest::Method m)
 {
-    switch (m) {
+    switch (m)
+    {
         case HttpRequest::HTTP_GET:    return "GET";
         case HttpRequest::HTTP_POST:   return "POST";
         case HttpRequest::HTTP_DELETE: return "DELETE";
@@ -334,24 +288,36 @@ std::string Cgi::_method_to_string(HttpRequest::Method m)
 }
 ```
 
-> `HttpRequest::getHeaders()` already stores **lowercased** keys, so no case conversion
-> is needed on the input, only `-` → `_`.
+> Mini glossary for your defense: the CGI spec calls these "meta-variables". `SCRIPT_NAME`
+> is the URL path, `SCRIPT_FILENAME` is the real path on disk (the one `execve`/`chdir`
+> use), `QUERY_STRING` is everything after `?`, `REQUEST_URI` the whole original URI.
+> Headers become `HTTP_<NAME>` so a CGI can read `Cookie`, `User-Agent`, `Accept`, etc.
 
-### 5.3 execute() — the heart of it
+### 4.4 execute() — fork, pipes, the child block
 
 ```cpp
 int Cgi::execute()
 {
     if (pipe(_outputPipe) == -1)
     {
-        LOG_ERROR << "pipe() in Cgi::execute() -> " << strerror(errno);
+        LOG_ERROR << "pipe() -> " << strerror(errno);
+        return -1;
+    }
+
+    // Pipes must be non-blocking (subject). We will only read() right after
+    // epoll reported EPOLLIN, so no EAGAIN in practice.
+    if (fcntl(_outputPipe[0], F_SETFL, O_NONBLOCK) == -1)
+    {
+        LOG_ERROR << "fcntl() -> " << strerror(errno);
+        (void)close(_outputPipe[0]);
+        (void)close(_outputPipe[1]);
         return -1;
     }
 
     _pid = fork();
     if (_pid == -1)
     {
-        LOG_ERROR << "fork() in Cgi::execute() -> " << strerror(errno);
+        LOG_ERROR << "fork() -> " << strerror(errno);
         (void)close(_outputPipe[0]);
         (void)close(_outputPipe[1]);
         return -1;
@@ -359,129 +325,139 @@ int Cgi::execute()
 
     if (_pid == 0)
     {
-        /* ---------------- CHILD ---------------- */
+        /* ===================== CHILD ===================== */
 
-        // We never read from the pipe: close the read end so that when this
-        // process dies, the write end is the only end left -> parent sees EOF.
-        (void)close(_outputPipe[0]);
+        (void)close(_outputPipe[0]);   // read end unused in child: without this,
+                                       // EOF would wait for a second read end.
 
-        // stdout -> pipe write end. Now "print()" in python flows to the server.
+        // stdin <- body file (your teammate's temp file). body_fd == -1 => /dev/null.
+        int in = (_body_fd != -1) ? _body_fd : open("/dev/null", O_RDONLY);
+        if (in != -1)
+        {
+            (void)lseek(in, 0, SEEK_SET);   // teammate left the cursor at the END
+            (void)dup2(in, STDIN_FILENO);
+            if (in != _body_fd)
+                (void)close(in);
+        }
+
+        // stdout -> pipe write end: whatever the script prints flows to the server.
         (void)dup2(_outputPipe[1], STDOUT_FILENO);
         (void)close(_outputPipe[1]);
 
-        // stdin <- /dev/null (GET has no body to forward in your scope)
-        int devnull = open("/dev/null", O_RDONLY);
-        if (devnull != -1)
+        // stderr -> /dev/null so a chatty script cannot backpressure the child.
+        int dn = open("/dev/null", O_WRONLY);
+        if (dn != -1)
         {
-            (void)dup2(devnull, STDIN_FILENO);
-            (void)close(devnull);
+            (void)dup2(dn, STDERR_FILENO);
+            (void)close(dn);
         }
 
-        // stderr -> /dev/null so a chatty script can't block on a full pipe.
-        // (During development, redirect it to a log file instead.)
-        devnull = open("/dev/null", O_WRONLY);
-        if (devnull != -1)
-        {
-            (void)dup2(devnull, STDERR_FILENO);
-            (void)close(devnull);
-        }
+        // The CGI must run in its own directory (relative file access, subject).
+        std::string dir = _script_path;
+        size_t slash = dir.find_last_of('/');
+        if (slash == std::string::npos)
+            dir = ".";
+        else if (slash == 0)
+            dir = "/";
+        else
+            dir = dir.substr(0, slash);
+        (void)chdir(dir.c_str());
 
         // Replace this process image with the interpreter.
-        // execve() returns ONLY on failure (with errno set).
+        // execve() returns ONLY on failure (errno set, allowed here: not read/write).
         execve(_cargv[0], (char *const *)&_cargv[0], (char *const *)&_cenv[0]);
 
-        LOG_ERROR << "execve() of " << _interpreter << " failed: " << strerror(errno);
-        _exit(127);   // 127 = "command not found", the script never ran
+        LOG_ERROR << "execve(" << _interpreter << ") -> " << strerror(errno);
+        _exit(127);     // 127 = "program not run". Never fall through.
     }
 
-    /* ---------------- PARENT ---------------- */
+    /* ===================== PARENT ===================== */
 
-    // CRITICAL: close the write end NOW, or the read end will never see EOF.
-    (void)close(_outputPipe[1]);
+    (void)close(_outputPipe[1]);   // CRITICAL: the ONLY real writer is the child.
+                                   // If the parent keeps it open, EOF never comes.
 
-    // Non-blocking reads so the event loop is never stalled by a slow script.
-    if (fcntl(_outputPipe[0], F_SETFL, O_NONBLOCK) == -1)
-    {
-        LOG_ERROR << "fcntl() in Cgi::execute() -> " << strerror(errno);
-        kill_child();
-        return -1;
-    }
+    if (_body_fd != -1)
+        (void)close(_body_fd);     // the child now has its own copy (dup2). Parent
+    _body_fd = -1;                 // drops it; the temp file can even be unlinked now.
 
-    m_fd = _outputPipe[0];      // AFd's fd is now the pipe read end
     _start = time(NULL);
     _reaped = false;
     return 0;
 }
 ```
 
-The 5 tiny rules of the child block, memorized:
+The child block, memorized as 6 rules:
 
-1. close the pipe **read** end in the child,
-2. dup2 the pipe **write** end over **stdout**,
-3. close the original pipe write end (otherwise two writers → EOF never comes),
-4. get sensible stdin/stderr,
-5. if `execve` returns → `_exit(127)`. (Never fall through: after exec failure the
-   child would keep "running" the server's code and corrupt shared things.)
+1. close the pipe **read** end,
+2. stdin ← body file (`lseek` to 0 first; `/dev/null` if no body),
+3. stdout ← pipe **write** end via `dup2`, then close the original write end —
+   otherwise TWO write ends exist and the parent would never see EOF,
+4. stderr → `/dev/null`,
+5. `chdir` into the script's directory,
+6. `execve`; if it returns, `_exit(127)`.
 
-### 5.4 handle_event() — reading the output
+> `_exit()` vs `exit()`: `exit()` would run C++ destructors and flush stdio buffers
+> *of the copied parent* — the child could re-write buffered data or deadlock on
+> inherited locks. `_exit()` skips all of it.
+
+### 4.5 read_output() — drain the pipe, without touching errno
 
 ```cpp
-Epoll::EventState Cgi::handle_event(uint32_t event)
+Cgi::e_out Cgi::read_output()
 {
-    (void)event;   // epoll only calls us because EPOLLIN happened
-
     char chunk[PIPE_BUFFER_SIZE];
-    int reads = 0;
 
-    while (true)
+    // Called ONLY because epoll reported EPOLLIN on the pipe. Read once.
+    // Level-triggered epoll fires again as long as data or EOF remains, so a
+    // single bounded read per event is enough, and -1 cannot be EAGAIN here.
+    ssize_t n = read(_outputPipe[0], chunk, sizeof(chunk));
+
+    if (n > 0)
     {
-        ssize_t n = read(m_fd, chunk, sizeof(chunk));
-
-        if (n > 0)
-        {
-            _buffer.append(chunk, static_cast<size_t>(n));
-            // Cap the number of reads per event so a flooding script cannot
-            // starve the rest of the server (fairness for the single loop).
-            if (++reads >= 64)
-                return Epoll::ECONTINUE;  // more data pending, come back later
-            continue;
-        }
-
-        if (n == 0)
-        {
-            // EOF: the child closed its stdout (i.e. it exited, or will any instant).
-            _reap();
-            return Epoll::EFINISHED;      // buffer is complete, reaped, all done
-        }
-
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return Epoll::ECONTINUE;      // no data right now, keep waiting
-
-        if (errno == EINTR)
-            continue;                     // interrupted by a signal, just retry
-
-        LOG_ERROR << "read() on cgi fd " << m_fd << " -> " << strerror(errno);
-        return Epoll::EERROR;
+        _buffer.append(chunk, static_cast<size_t>(n));
+        return MORE;                       // more bytes may come; keep waiting
     }
+
+    if (n == 0)
+    {
+        // EOF: the child closed stdout, i.e. it ended (or is about to end).
+        int r;
+        do { r = waitpid(_pid, &_status, WNOHANG); }
+        while (r == -1 && errno == EINTR); // waitpid errno IS allowed
+
+        if (r == 0)
+        {
+            // Child still alive although stdout is closed: a script that closed
+            // its stdout early. It declared "done" - force it to finish, then
+            // reap. (Block happens only AFTER SIGKILL, so it cannot hang.)
+            (void)kill(_pid, SIGKILL);
+            (void)waitpid(_pid, &_status, 0);
+        }
+        _reaped = true;
+        return DONE;
+    }
+
+    // n < 0: treat as failure WITHOUT inspecting errno (forbidden after read).
+    return FAIL;
 }
 ```
 
-> **Use `read()`, not `recv()`.** The existing `src/cgi/Cgi.cpp` calls `recv()` on a
-> pipe — `recv()` only works on *sockets* and returns `ENOTSOCK`. This is a bug in the
-> current skeleton. Always `read()` the pipe.
+> Why **one** read per event and not a drain-loop: a malicious script could flood the
+> pipe; a drain-loop would monopolize the single-threaded loop and starve every other
+> client. One bounded read → `ECONTINUE` → `epoll_wait` again → level-triggered event
+> re-fires instantly → next chunk. Fair to everybody.
+
+### 4.6 reap / kill / accessors / destructor
 
 ```cpp
-void Cgi::_reap()
+void Cgi::kill_child()
 {
-    if (_pid <= 0 || _reaped)
-        return;
-    int ret;
-    do
+    if (_pid > 0 && !_reaped)
     {
-        ret = waitpid(_pid, &_status, 0);   // blocking; safe here: EOF already happened
-    } while (ret == -1 && errno == EINTR);
-    _reaped = true;
-    (void)ret;
+        (void)kill(_pid, SIGKILL);
+        (void)waitpid(_pid, &_status, 0);
+        _reaped = true;
+    }
 }
 ```
 
@@ -493,104 +469,104 @@ bool Cgi::exited_cleanly() const
 ```
 
 ```cpp
-void Cgi::kill_child()
-{
-    if (_pid > 0 && !_reaped)
-    {
-        (void)kill(_pid, SIGKILL);
-        _reap();
-    }
-}
-```
-
-```cpp
-int Cgi::get_pid() const          { return _pid; }
-time_t Cgi::started_at() const    { return _start; }
+int Cgi::get_pipe_fd() const            { return _outputPipe[0]; }
+int Cgi::get_pid() const                { return _pid; }
 const std::string &Cgi::get_output() const { return _buffer; }
 
 Cgi::~Cgi()
 {
-    // If something went wrong while the child was still alive (e.g. the client
-    // disconnected mid-CGI), never leave an orphan running.
-    kill_child();
+    kill_child();   // a Cgi that dies with a live child never orphans it
 }
 ```
 
-> The `Cgi` destructor calling `kill_child()` is your safety net: **whichever path
-> deletes the `Cgi`, the child is killed and reaped.** No zombie, no orphan process.
-
 ---
 
-## 6. `Client::start_cgi()` — the seam your teammate calls
+## 5. Client integration
 
-This is the public entry point of the network side. Your teammate's code (whoever
-detects "is CGI") calls this with the interpreter and the resolved script path.
-
-Add to `Client.hpp`:
+### 5.1 New members in Client.hpp
 
 ```cpp
-// public:
-int  start_cgi(const std::string &interpreter, const std::string &script_path);
+# include <Cgi.hpp>
 
-// private:
-Cgi                  *_cgi;      // NULL while no CGI is running
-time_t                _cgi_start;
-Epoll::EventState     _handle_cgi_event(uint32_t event);
-void                  _build_cgi_response();   // parse raw bytes -> HttpResponse
-void                  _build_cgi_error(HttpStatus::Code code);
-void                  _cleanup_cgi();          // delete _cgi, set _cgi = NULL
+class Client : public AFd
+{
+public:
+    int  start_cgi(const std::string &interpreter,
+                   const std::string &script_path, int body_fd);
+    // ...
+private:
+    Cgi    *_cgi;             // NULL when no CGI is running
+    time_t  _cgi_start;       // when the CGI started (timeout anchor)
+
+    Epoll::EventState _handle_cgi_event();      // pipe event
+    void              _cgi_timeout();           // kill + 504 + rearm
+    void              _build_cgi_response();    // drain bytes -> HttpResponse
+    void              _build_cgi_error(HttpStatus::Code code);
+};
 ```
 
+In `Client::Client(...)` member-init list add: `_cgi(NULL), _cgi_start(0)`.
+
+### 5.2 start_cgi — the entry point
+
 ```cpp
-int Client::start_cgi(const std::string &interpreter, const std::string &script_path)
+int Client::start_cgi(const std::string &interpreter,
+                      const std::string &script_path, int body_fd)
 {
-    _cgi = new Cgi(_request, script_path, interpreter);
+    _cgi = new Cgi(_request, script_path, interpreter, body_fd);
     _cgi_start = time(NULL);
 
-    if (_cgi->execute() != 0)
+    if (_cgi->execute() != 0)              // pipe/fork failed
     {
-        delete _cgi;
-        _cgi = NULL;
+        delete _cgi; _cgi = NULL;
         _build_cgi_error(HttpStatus::InternalServerError);
         m_state = CSENDING_HEADERS;
-        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+        _epoll.edit_fd(m_fd, this, EPOLLOUT);   // socket still registered
         return -1;
     }
 
     m_state = CEXECUTING_CGI;
 
-    // THE POINTER TRICK: register the PIPE fd, but store "this" (the Client)
-    // as the epoll data pointer. No change needed in the Multiplexer dispatch:
-    // events on the pipe simply call Client::handle_event(), which routes by state.
-    if (_epoll.add_fd(_cgi->get_fd(), this, EPOLLIN) != 0)
+    // THE POINTER TRICK: the PIPE fd points at the CLIENT object.
+    if (_epoll.add_fd(_cgi->get_pipe_fd(), this, EPOLLIN) != 0)
     {
-        _cgi->kill_child();
-        delete _cgi;
-        _cgi = NULL;
-        _build_cgi_error(HttpStatus::InternalServerError);
+        delete _cgi; _cgi = NULL;
         m_state = CSENDING_HEADERS;
-        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+        _build_cgi_error(HttpStatus::InternalServerError);
+        _epoll.edit_fd(m_fd, this, EPOLLOUT);   // still registered
         return -1;
     }
+
+    // From now on the client socket is OUT of epoll: any event on this Client
+    // object is unambiguously from the CGI pipe. Clean separation.
+    _epoll.del_fd(m_fd);
     return 0;
 }
 ```
 
-Why this works: `Epoll::add_fd(int fd, AFd *ptr, int events)` just stores `ptr` in
-`ev.data.ptr`. The kernel does **not** care that `fd` and `ptr` are unrelated — you are
-free to point a pipe fd at a Client object. The Multiplexer's existing line
-`fdObj = static_cast<AFd *>(events[i].data.ptr); fdObj->handle_event(...)` continues to
-"just work" for CGI events, and the CLIENT-type cleanup (list tracking, activity refresh,
-timeout bookkeeping) applies to this Client as well. One epoll entry, one AFd pointer,
-zero Multiplexer dispatch changes.
+Why remove the socket: while a CGI runs, `handle_event()` receives only `uint32_t
+event` — **not** the fd. If both the socket and the pipe pointed at the Client, you
+couldn't tell where an event came from. By keeping **one fd in epoll at a time**, every
+event while `CEXECUTING_CGI` is the pipe. (Disconnects during a CGI are noticed later,
+when `send()` fails — which is fine and handled.)
 
-### Client::handle_event dispatches by state
+### 5.3 Client::handle_event — dispatch by state
 
 ```cpp
 Epoll::EventState Client::handle_event(uint32_t event)
 {
     if (m_state == CEXECUTING_CGI)
-        return _handle_cgi_event(event);   // events from the PIPE land here
+    {
+        // EVERYTHING reaching here is the CGI pipe (socket is del'ed).
+        // Self-check: a script that streams output forever never gets "stale"
+        // in the LRU list, so it MUST be timed out from inside, on its own events.
+        if (_cgi != NULL && time(NULL) - _cgi_start > CGI_TIMEOUT)
+        {
+            _cgi_timeout();
+            return Epoll::ECONTINUE;
+        }
+        return _handle_cgi_event();
+    }
 
     if (event & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
         return Epoll::EERROR;
@@ -608,78 +584,135 @@ Epoll::EventState Client::handle_event(uint32_t event)
 }
 ```
 
-### Client::_handle_cgi_event
+### 5.4 Client::_handle_cgi_event — the pipeline event
 
 ```cpp
-Epoll::EventState Client::_handle_cgi_event(uint32_t event)
+Epoll::EventState Client::_handle_cgi_event()
 {
-    if (event & (EPOLLERR | EPOLLHUP | EPOLLRDHUP))
+    Cgi::e_out result = _cgi->read_output();
+
+    if (result == Cgi::MORE)
+        return Epoll::ECONTINUE;          // keep waiting (for bytes or EOF)
+
+    // pipe is finished - unregister it BEFORE anything else.
+    _epoll.del_fd(_cgi->get_pipe_fd());
+
+    if (result == Cgi::FAIL || !_cgi->exited_cleanly())
     {
-        // Pipe died abnormally. Clean up and deliver 500.
-        _epoll.del_fd(_cgi->get_fd());
-        _cgi->kill_child();
-        delete _cgi;
-        _cgi = NULL;
-        _build_cgi_error(HttpStatus::InternalServerError);
-        m_state = CSENDING_HEADERS;
-        _epoll.edit_fd(m_fd, this, EPOLLOUT);
-        return Epoll::ECONTINUE;
+        delete _cgi; _cgi = NULL;         // destructor kills/reaps if needed
+        _build_cgi_error(HttpStatus::BadGateway);          // 502
+    }
+    else
+    {
+        _build_cgi_response();            // parse bytes -> HttpResponse
+        delete _cgi; _cgi = NULL;
     }
 
-    Epoll::EventState cgi_state = _cgi->handle_event(event);
-
-    if (cgi_state == Epoll::ECONTINUE)
-        return Epoll::ECONTINUE;          // still running / more data pending
-
-    // EFINISHED or EERROR: the pipe is finished. Unlink it from epoll first,
-    // otherwise epoll keeps a pointer to a soon-deleted object.
-    _epoll.del_fd(_cgi->get_fd());
-
-    if (cgi_state == Epoll::EERROR)
-        _build_cgi_error(HttpStatus::InternalServerError);
-    else if (_cgi->exited_cleanly())
-        _build_cgi_response();            // parse bytes -> HttpResponse
-    else
-        _build_cgi_error(HttpStatus::BadGateway);   // script crashed / exit != 0
-
-    _cgi->kill_child();   // no-op if already reaped; safety
-    delete _cgi;
-    _cgi = NULL;
-
+    // The buffer now holds the whole CGI answer. Back to the normal path:
     m_state = CSENDING_HEADERS;
-    _epoll.edit_fd(m_fd, this, EPOLLOUT);   // back to the normal send path
-    return Epoll::ECONTINUE;                // IMPORTANT: not EFINISHED, the
-                                            // client itself still has to send!
+    _epoll.add_fd(m_fd, this, EPOLLOUT);  // re-register socket (it was del'ed)
+    return Epoll::ECONTINUE;              // NEVER EFINISHED: the client must be sent!
 }
 ```
 
-> **Why the final `return ECONTINUE` is mandatory.** If you returned `EFINISHED`, the
-> Multiplexer would `del_fd(get_fd())` and `delete fdObj` — i.e. it would close and
-> destroy the **client socket** too. But you want to *keep* that client and send the CGI
-> response back. The pipe fd was already unregistered and its object freed; the client
-> lives on to respond.
+> **Why `ECONTINUE` and never `EFINISHED` here:** if you returned `EFINISHED`, the
+> Multiplexer does `del_fd(fdObj->get_fd())` and `delete fdObj` — it would close and
+> destroy the *client socket*. You want to keep the client and send its response.
+> Return `ECONTINUE`; the socket is re-added for `EPOLLOUT`, epoll wakes it, and
+> `_send_data()` does the rest.
 
-### Cleanup / destructor
+### 5.5 Client::_cgi_timeout — 504
 
-Client destructor currently is empty. Add the CGI safety net:
+```cpp
+void Client::_cgi_timeout()
+{
+    LOG_WARN << "CGI timed out on client fd " << m_fd;
+
+    _epoll.del_fd(_cgi->get_pipe_fd());   // 1) stop watching the pipe
+    delete _cgi; _cgi = NULL;             // 2) kill + reap the child
+    _build_cgi_error(HttpStatus::GatewayTimeout);   // 3) 504
+    m_state = CSENDING_HEADERS;
+    _epoll.add_fd(m_fd, this, EPOLLOUT);  // 4) socket back, arms EPOLLOUT
+}
+```
+
+> Order is sacred: `del_fd` the pipe **before** `delete _cgi`, or epoll is left with a
+> dangling pointer. (`Cgi::~Cgi()` → `kill_child()` guarantees the script dies and is
+> reaped.)
+
+### 5.6 Client::handle_timeout — the Multiplexer's dispatch now covers CGI
+
+```cpp
+void Client::handle_timeout()
+{
+    if (m_state == CEXECUTING_CGI && _cgi != NULL)
+    {
+        _cgi_timeout();
+        return;
+    }
+    // ... your existing 408 logic unchanged ...
+}
+```
+
+### 5.7 Client destructor — the safety net
 
 ```cpp
 Client::~Client()
 {
-    if (_cgi)   // client disconnected or deleted while CGI was running
+    if (_cgi)
     {
-        _epoll.del_fd(_cgi->get_fd());
-        delete _cgi;     // Cgi::~Cgi() kills + reaps the child
+        _epoll.del_fd(_cgi->get_pipe_fd());
+        delete _cgi;      // Cgi::~Cgi() kills + reaps the still-running script
         _cgi = NULL;
     }
 }
 ```
 
+This is what makes `Multiplexer::_handle_timeout()`'s "else → delete client" branch
+non-leaking: even if the delete path runs while a CGI is in flight, the child is killed
+and reaped, and the pipe is unregistered.
+
 ---
 
-## 7. Building the HTTP response from CGI output
+## 6. Multiplexer: the 2-line timeout change
 
-The script writes to stdout. With a proper CGI script, that output looks like this:
+In `Multiplexer::_handle_timeout()`, add `CEXECUTING_CGI` to the branch that *handles
+then reschedules* (instead of the else-branch that deletes):
+
+```cpp
+if (now - client->m_lastActivity > timeout)
+{
+    if (client->m_state == Client::CRECEVING
+        || client->m_state == Client::CEXECUTING_CGI)   // <-- added
+    {
+        client->handle_timeout();      // Client decides what to do by its state
+        _clientsList.pop_front();
+        client->m_lastActivity = time(NULL);
+        _clientsList.push_back(client);
+        client->m_it = --_clientsList.end();
+    }
+    else
+    {
+        _clientsList.pop_front();
+        _epoll.del_fd(client->get_fd());
+        LOG_INFO << "Client with fd " << client->get_fd() << " timed out";
+        delete client;
+    }
+}
+```
+
+Two mechanisms now cover the two failure shapes:
+
+| CGI behaviour | Who catches it | What happens |
+|---|---|---|
+| **silent** (hangs, no output) | `Multiplexer::_handle_timeout` → `client->handle_timeout()` → `_cgi_timeout()` | kill + `504 Gateway Timeout` |
+| **never ending** (streams forever) | self-check inside `Client::handle_event()` on every pipe event | same `504` |
+
+---
+
+## 7. Building the HTTP response from the CGI bytes
+
+The script's stdout looks like:
 
 ```
 Content-Type: text/html\r\n
@@ -687,262 +720,166 @@ Content-Type: text/html\r\n
 <html><body>Hello</body></html>
 ```
 
-Rules you implement:
-
-* the header section ends at the first **empty line** (`\r\n\r\n` or `\n\n`),
-* a line starting with `Status: ` contains the HTTP status code,
-* any other `Name: value` line is a header you forward,
-* the rest (after the empty line) is the body,
-* **you** recompute `Content-Length` from the bytes you actually received — never
-  trust/keep the script's own `Content-Length` (it may be wrong or absent).
+Rules: header block ends at the first **empty line**; `Status:` provides the status
+code; other lines are headers to forward; everything after the empty line is the body;
+**you** recompute `Content-Length` from the bytes you actually received.
 
 ```cpp
 void Client::_build_cgi_response()
 {
     const std::string &raw = _cgi->get_output();
 
-    HttpStatus::Code       code = HttpStatus::OK;
+    HttpStatus::Code code = HttpStatus::OK;
     std::map<std::string, std::string> headers;
     std::string body;
-    bool has_status = false;
+    bool in_headers = true;
 
-    // Locate the end of the header block.
-    size_t sep = raw.find("\r\n\r\n");
-    if (sep == std::string::npos)
-        sep = raw.find("\n\n");
-
-    std::string head, tail;
-    if (sep == std::string::npos)
+    size_t i = 0;
+    while (i < raw.size())
     {
-        head = raw;          // no headers at all: everything is body
-    }
-    else
-    {
-        head = raw.substr(0, sep);
-        size_t body_start = sep + (raw[sep] == '\r' ? 4 : 2);
-        body = raw.substr(body_start);
-    }
+        size_t nl = raw.find('\n', i);
+        std::string line = raw.substr(i, nl == std::string::npos ? std::string::npos : nl - i);
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);          // normalize "\r\n" to "\n"
+        i = (nl == std::string::npos) ? raw.size() : nl + 1;
 
-    size_t start = 0;
-    while (start < head.size())
-    {
-        size_t end = head.find("\r\n", start);
-        if (end == std::string::npos)
-            end = head.size();
-        std::string line = head.substr(start, end - start - (end != head.size() ? 2 : 0));
-        start = (end == head.size()) ? head.size() : end + 2;
-
-        if (line.empty())
-            continue;                        // reached the end of headers
-
-        if (line.compare(0, 7, "Status:") == 0)
+        if (in_headers)
         {
-            // "Status: 404 Not Found" -> extract the code
-            std::string rest = line.substr(7);
-            size_t code_start = rest.find_first_not_of(" \t");
-            size_t space = rest.find(' ', code_start);
-            std::string num = rest.substr(code_start, (space == std::string::npos
-                                                      ? std::string::npos : space - code_start));
-            code = static_cast<HttpStatus::Code>(std::atoi(num.c_str()));
-            has_status = true;
-            continue;
-        }
-        if (line.compare(0, 5, "HTTP/") == 0)
-            continue;   // NPH-style script that printed its own status line: skip it
+            if (line.empty())                     // blank line: headers end here
+            {
+                in_headers = false;
+                continue;
+            }
+            if (line.compare(0, 7, "Status:") == 0)     // "Status: 201 Created"
+            {
+                std::string rest = line.substr(7);
+                size_t p = rest.find_first_not_of(" \t");
+                if (p != std::string::npos)
+                    code = static_cast<HttpStatus::Code>(std::atoi(rest.c_str() + p));
+                continue;
+            }
+            if (line.compare(0, 5, "HTTP/") == 0)
+                continue;                         // NPH script printed a status line: skip
 
-        size_t colon = line.find(':');
-        if (colon == std::string::npos)
-            continue;
-        std::string name  = Utils::trim(line.substr(0, colon));
-        std::string value = Utils::trim(line.substr(colon + 1));
+            size_t colon = line.find(':');
+            if (colon == std::string::npos)
+                continue;
+            std::string name  = _trim(line.substr(0, colon));
+            std::string value = _trim(line.substr(colon + 1));
 
-        std::string lower = name;
-        for (size_t i = 0; i < lower.size(); ++i)
-            lower[i] = static_cast<char>(::tolower(lower[i]));
+            std::string lower = _lower(name);
+            if (lower == "content-length" || lower == "connection"
+                || lower == "transfer-encoding")
+                continue;                        // we manage those ourselves
 
-        // We manage these ourselves: never copy them from the script.
-        if (lower == "content-length" || lower == "connection"
-            || lower == "transfer-encoding")
-            continue;
-
-        headers[name] = value;
-    }
-
-    _response.setStatusCode(code);
-    _response.setHeader("Content-Type", headers.count("Content-Type")
-                                        ? headers["Content-Type"] : "text/plain");
-    _response.setBody(body);   // <- this sets Content-Length automatically
-    _response.build();
-}
-```
-
-`setBody()` already sets `Content-Length` from the actual body size and `build()`
-concatenates status line + headers + body into `_header_buffer`. That means for a CGI
-response, `hasFile()` stays `false` — your existing `Client::_send_data()` sends the
-whole thing (headers + body) from the header buffer and goes straight to `CFINISHED`.
-**No change to the send path needed.** (If a CGI output a `Status: 3xx` + `Location`,
-the empty body works too.)
-
-> The error version is trivial: `_build_cgi_error(code)` just calls
-> `_buildErrorResponse`-style logic — set status, `Content-Type: text/html`, small body,
-> `build()`. (Reuse/adapt the error builder from `RequestHandler` so both sides agree on
-> formatting.)
-
----
-
-## 8. Timeout — wiring it into the Multiplexer
-
-`CGI_TIMEOUT` (16) already exists in `Multiplexer.hpp`. The problem: the existing
-`Multiplexer::_handle_timeout()` pops the *front* of the LRU list and treats any stale
-client that is not `CRECEVING` by **deleting it outright**. For a client running a CGI
-that would mean: socket closed, child process leaked, pipe left in epoll → crash.
-
-Add a dedicated pass *before* the existing loop that scans **every** client for an
-overdue CGI. It is O(n) per loop iteration and independent of the LRU ordering (a
-script that constantly writes output refreshes `m_lastActivity`, so it would never reach
-the front of the LRU list — only a real start-time check catches it).
-
-```cpp
-void Multiplexer::_handle_timeout()
-{
-    time_t now = time(NULL);
-
-    // --- CGI hard timeout: scan ALL clients, not just the LRU front ---
-    std::list<Client *>::iterator it = _clientsList.begin();
-    while (it != _clientsList.end())
-    {
-        Client *client = *it;
-        if (client->m_state == Client::CEXECUTING_CGI
-            && now - client->_cgi_start > CGI_TIMEOUT)
-        {
-            client->handle_cgi_timeout();          // kills script, builds 504,
-                                                   // rearms EPOLLOUT
-            std::list<Client *>::iterator cur = it++;
-            _clientsList.splice(_clientsList.end(), _clientsList, cur); // to back
-            client->m_lastActivity = now;
+            headers[name] = value;
         }
         else
         {
-            ++it;
+            body += line;                        // body is stored verbatim
+            if (nl != std::string::npos)
+                body += "\n";
         }
     }
 
-    // ... your existing front-pop timeout loop stays unchanged below this ...
+    _response.setStatusCode(code);
+    _response.setHeader("Content-Type",
+        headers.find("Content-Type") != headers.end() ? headers["Content-Type"]
+                                                      : "text/plain");
+    _response.setBody(body);     // computes Content-Length from ACTUAL bytes
+    _response.build();           // status line + all headers + body into _header_buffer
 }
 ```
 
-And on the Client side:
+(Add two 3-line helpers `_trim`/`_lower`, or inline the small loops — C++98 has no
+`std::tolower` overload for `std::string`.)
 
-```cpp
-void Client::handle_cgi_timeout()
-{
-    LOG_WARN << "CGI timeout on client fd " << m_fd;
+`_build_cgi_error(code)` is your existing error-page logic (set status, `Content-Type:
+text/html`, small body, `build()`) — adapt/reuse the one from `RequestHandler`.
 
-    _epoll.del_fd(_cgi->get_fd());   // stop watching the pipe FIRST
-    delete _cgi;                     // Cgi::~Cgi() kills + reaps the script
-    _cgi = NULL;
+---
 
-    _build_cgi_error(HttpStatus::GatewayTimeout);   // 504
-    m_state = CSENDING_HEADERS;
-    _epoll.edit_fd(m_fd, this, EPOLLOUT);
-}
+## 8. "And then when EPOLLOUT fires, I send the buffer" — yes
+
+Your mental model is exactly the code you already have:
+
+```
+step 1  EPOLLIN on pipe     -> read_output()           -> _buffer grows
+step 2  EOF on pipe         -> _build_cgi_response()   -> _header_buffer ready
+                            -> m_state = CSENDING_HEADERS
+                            -> add_fd(socket, EPOLLOUT)
+step 3  EPOLLOUT on socket  -> Client::_send_data()    -> sends _header_buffer
 ```
 
-> Order of operations is sacred: **`del_fd` (epoll) → delete the `Cgi` (which kills the
-> child) → re-arm the client socket.** If you delete the `Cgi` while its pipe fd is
-> still registered, the next `epoll_wait` wakes up with a dangling `data.ptr` → crash.
+For a CGI response `_response.hasFile()` is `false`, and `build()` already glued headers
+**and** body into `_header_buffer`, so `_send_data()` sends the whole answer and lands
+on `CFINISHED` — keep-alive handling included. **No change to `_send_data()`.**
 
 ---
 
-## 9. The seven bugs to avoid (a few are already in the skeleton!)
+## 9. Checklist — every file you touch today
 
-1. **`recv()` on a pipe** — `src/cgi/Cgi.cpp:77` calls `recv()`. Pipes are not sockets;
-   `recv()` fails with `ENOTSOCK`. Use `read()`.
-2. **Dangling `c_str()` pointers** — `src/cgi/Cgi.cpp:115` stores `var.c_str()` where
-   `var` is a local that dies at the end of the loop, *and* pushes to `_env` while
-   storing pointers into it (`std::vector` reallocation invalidates the strings'
-   buffers). Fix: fill `_env` completely, *then* build `_cenv`.
-3. **`exit()` vs `_exit()` in the child** — after a failed `execve` you must use
-   `_exit(127)`. `exit()` runs destructors and flushes stdio buffers *of the copy*,
-   which can double-write data or hang on locks inherited from the parent.
-4. **Zombies** — a child that exited but was never `waitpid`ed stays a zombie. Always
-   pair `kill()` with `waitpid()` (the `Cgi` destructor does it).
-5. **EOF never arrives** — if the parent keeps the pipe's write end open (or the child
-   never closes its original write-end copy), `read()` returns 0 only after `CGI_TIMEOUT`
-   kills it. Keep one writer: **parent closes `_outputPipe[1]` right after fork**;
-   child dup2's then closes it.
-6. **Returning `EFINISHED` from the CGI branch** — deletes the client socket too. Return
-   `ECONTINUE` and re-arm `EPOLLOUT` so the response can be sent.
-7. **The Multiplexer deletes without CGI cleanup** — the time-out `else`-branch of
-   `_handle_timeout()` would `delete client` while the child still runs. The
-   `Client::~Client()` CGI safety net (§6) is what saves you there; make sure the
-   `handle_cgi_timeout` pass runs before that branch can trigger.
+| File | Change |
+|---|---|
+| `include/cgi/Cgi.hpp` | rewrite: plain class, no AFd, `e_out` enum, `body_fd` ctor param |
+| `src/cgi/Cgi.cpp` | rewrite: env, argv, `execute`, `read_output`, `kill_child` (above) |
+| `include/network/Client.hpp` | `#include <Cgi.hpp>`; `start_cgi`; members `_cgi`, `_cgi_start`; private helpers |
+| `src/network/Client.cpp` | ctor init list; `start_cgi`; `handle_event` dispatch; `_handle_cgi_event`; `_cgi_timeout`; `handle_timeout` branch; `_build_cgi_response`/`_build_cgi_error`; destructor |
+| `src/network/Multiplexer.cpp` | `_handle_timeout`: add `CEXECUTING_CGI` to the handle/reschedule branch |
+| `Makefile` | add `./src/cgi/Cgi.cpp` to `SRC` (it is not compiled today!) |
+
+Compile flags reminder: `-std=c++98 -Wall -Wextra -Werror`. No `nullptr`, no `auto`, no
+range-for, no lambdas. Cast ignored syscall results with `(void)`.
 
 ---
 
-## 10. Makefile — add the CGI source (it is currently not compiled!)
+## 10. Testing — a minimal CGI
 
-`src/cgi/Cgi.cpp` exists but is **missing from the Makefile**'s `SRC` list, so nothing
-compiles it. Add:
-
-```makefile
-SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
-	  ./main.cpp \
-	  ./src/Logger/Logger.cpp  \
-	  ./src/ConfigFileParser/ConfigStructures/CommonConfig.cpp \
-	  ./src/ConfigFileParser/ConfigStructures/LocationConfig.cpp \
-	  ./src/ConfigFileParser/ConfigStructures/ServerConfig.cpp \
-	  ./src/ConfigFileParser/ConfigParser.cpp \
-	  ./src/network/AFd.cpp ./src/network/Server.cpp ./src/network/Client.cpp \
-	  ./src/network/Multiplexer.cpp ./src/network/Epoll.cpp \
-	  ./src/http/HttpRequest.cpp ./src/http/RequestHandler.cpp ./src/http/Uri.cpp \
-	  ./src/http/HttpResponse.cpp ./src/http/HttpStatus.cpp \
-	  ./src/cgi/Cgi.cpp
-```
-
-Watch out: everything is compiled with `-std=c++98 -Wall -Wextra -Werror`. No `nullptr`,
-no `auto`, no range-for, no lambdas.
-
----
-
-## 11. Testing — a tiny CGI script
-
-Create `www/hello.py`:
+`www/hello.py` (headers must use CRLF):
 
 ```python
 #!/usr/bin/python3
 import sys
 sys.stdout.write("Content-Type: text/html\r\n")
 sys.stdout.write("\r\n")
-sys.stdout.write("<html><body><h1>Hello from CGI!</h1></body></html>")
+sys.stdout.write("<html><body><h1>Hello from CGI</h1></body></html>")
 sys.stdout.flush()
 ```
 
-`sys.stdout.write` with explicit `\r\n` matters because CGI headers must use CRLF.
-Then run the server with a config that maps `.py` → `/usr/bin/python3`
-(`Configs/cgiTest.conf` already does) and request the script. `telnet`/`curl` both work:
+Serve with a config that maps `.py` → `/usr/bin/python3` (`Configs/cgiTest.conf` does),
+then:
 
 ```
-curl 'http://127.0.0.1:80/hello.py?name=me'
+curl 'http://127.0.0.1:80/hello.py?foo=bar'
 ```
 
-Watch the server logs: you should see the CGI fd being registered, and one drain event
-per chunk.
+Watch the log: CGI fd registered, one event per chunk, EOF, then the response goes out
+on the client's `EPOLLOUT`. To test the timeout, make a script with
+`import time; time.sleep(60)` — you should get `504` after `CGI_TIMEOUT` and the process
+should be gone (`pgrep python3` returns nothing).
 
 ---
 
-## 12. Summary — the pieces you own now
+## Summary of the pieces you own
 
-| Piece | Where | What it does |
-|---|---|---|
-| `Cgi` class | `src/cgi/Cgi.cpp` + `include/cgi/Cgi.hpp` | env, argv, `pipe`, `fork`, `execve`, read output, `waitpid`, kill |
-| `Client::start_cgi` | `src/network/Client.cpp` | entry point called when a request is judged CGI; registers pipe in epoll, sets `CEXECUTING_CGI` |
-| `Client::handle_event` dispatch | `src/network/Client.cpp` | routes pipe events into `_handle_cgi_event` by state |
-| `Client::_handle_cgi_event` | `src/network/Client.cpp` | drains, waits, builds the response, hands off to `_send_data()` |
-| `Client::handle_cgi_timeout` | `src/network/Client.cpp` | kills script, answers `504` |
-| `Multiplexer::_handle_timeout` | `src/network/Multiplexer.cpp` | new CGI scan using `CGI_TIMEOUT` |
-| `Client::~Client` | `src/network/Client.cpp` | cleanup safety net when a client vanishes mid-CGI |
-| `Makefile` | `Makefile` | add `./src/cgi/Cgi.cpp` |
+```
+        friend's request side                    YOUR network side (this file)
+  ┌───────────────────────────┐          ┌───────────────────────────────────────┐
+  │ parse request + body      │          │ Client::start_cgi(...)                │
+  │ un-chunk, write body file │  gave:   │   Cgi::execute()  (pipe, fork, exec)  │
+  │ detect "is CGI"           │  interpr.│   add_fd(pipe, this, EPOLLIN)         │
+  │ resolve script path       │  script  │   del_fd(socket)                      │
+  └───────────────────────────┘  body_fd └─────────────────┬─────────────────────┘
+                                                          │ pipe events
+                                                            ▼
+                                              Client::_handle_cgi_event()
+                                              read_output() until EOF
+                                              _build_cgi_response()
+                                              add_fd(socket, EPOLLOUT)
+                                              _send_data()   <-- you already had it
+```
 
-After you write it: every request is either **static** (current path) or **CGI**
-(your new path), and both converge on `CSENDING_HEADERS` → `_send_data()` → done.
+The one object that exists in epoll is the **Client**. The `Cgi` is its private
+assistant: **spawn → feed body → collect output → report**. Timeouts are a Client
+matter (`_cgi_timeout`), triggered both by its own events and by the Multiplexer's
+generic dispatch. Clean, small, and — crucially — fully explainable at the evaluation.
