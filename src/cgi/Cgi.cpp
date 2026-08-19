@@ -3,6 +3,7 @@
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -90,7 +91,85 @@ pid_t Cgi::getPid() const {
 }
 
 int Cgi::execute() {
- 
+  if (pipe(_outputPipe) == -1)
+  {
+    LOG_ERROR << "pipe() -> " << strerror(errno);
+    return -1;
+  }
+  if (fcntl(_outputPipe[0], F_SETFL, O_NONBLOCK) == -1)
+  {
+    LOG_ERROR << "fcntl() -> " << strerror(errno);
+    (void)close(_outputPipe[0]);
+    (void)close(_outputPipe[1]);
+    return -1;
+  }
+  _pid = fork();
+  if (_pid == -1)
+  {
+    LOG_ERROR << "fork() -> " << strerror(errno);
+    (void)close(_outputPipe[0]);
+    (void)close(_outputPipe[1]);
+    return -1;
+  }
+
+  if (_pid == 0)
+  {
+    (void)close(_outputPipe[0]);
+
+    int input = (_body_fd != -1) ? _body_fd : open("/dev/null", O_RDONLY);
+    if (input != -1)
+    {
+      (void)lseek(input, 0, SEEK_SET);
+      (void)dup2(input, STDIN_FILENO);
+      (void)close(input);
+    }
+
+    // I must remove this if I want to see the script errors
+    int blackhole = open("/dev/null", O_WRONLY);
+    if (blackhole != -1)
+    {
+      (void)dup2(blackhole, STDERR_FILENO);
+      (void)close(blackhole);
+    }
+
+    std::string dir;
+    size_t slash = _script_path.find_last_of('/');
+    if (slash == std::string::npos)
+      dir = ".";
+    else if (slash == 0)
+      dir = "/";
+    else
+      dir = _script_path.substr(0, slash);
+    (void)chdir(dir.c_str());
+
+    execve(_cargv[0], (char *const *)&_cargv[0], (char *const *)&_cenv[0]);
+    LOG_ERROR << "execve(" << _interpreter << ") -> " << strerror(errno);
+    _exit(127);
+  }
+
+  (void)close(_outputPipe[1]);
+
+  if (_body_fd != -1)
+  {
+    (void)close(_body_fd);
+    _body_fd = -1;
+  }
+  _start = time(NULL);
+  return 0;
+}
+
+Cgi::e_out Cgi::readOutput() {
+  char chunk[PIPE_BUFFER_SIZE];
+  ssize_t bytes = read(_outputPipe[0], chunk, sizeof(chunk));
+  if (bytes > 0)
+  {
+    _buffer.append(chunk, static_cast<size_t>(bytes));
+    return MORE;
+  }
+  if (bytes == 0)
+  {
+    
+  }
 }
 
 Cgi::~Cgi()
