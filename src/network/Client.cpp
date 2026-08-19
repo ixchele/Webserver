@@ -130,6 +130,35 @@ Epoll::EventState Client::handle_event(uint32_t event)
         return Epoll::EFINISHED;
 }
 
+int Client::startCgi(const std::string &interpreter, 
+                    const std::string &script_path, int body_fd)
+{
+    _cgi = new Cgi(_request, interpreter, script_path, body_fd);
+    _cgi_start = time(NULL);
+_epoll
+    if (_cgi->execute() != 0)
+    {
+        delete _cgi;
+        _cgi = NULL;
+        _build_cgi_error(HttpStatus::InternalServerError);
+        m_state = CSENDING_HEADERS;
+        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+        return -1;
+    }
+    m_state = CEXECUTING_CGI;
+    if (_epoll.add_fd(_cgi->getReadEnd(), this, EPOLLIN) != 0)
+    {
+        delete _cgi;
+        _cgi = NULL;
+        _build_cgi_error(HttpStatus::InternalServerError);
+        m_state = CSENDING_HEADERS;
+        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+        return -1;
+    }
+    _epoll.del_fd(m_fd);
+    return 0;
+}
+
 void Client::handle_timeout()
 {
     _reset();

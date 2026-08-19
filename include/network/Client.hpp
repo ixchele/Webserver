@@ -49,6 +49,9 @@ class Client : public AFd
     Epoll::EventState _receive_data();
     Epoll::EventState _send_data();
     Epoll::EventState _handle_cgi_event();
+    void              _cgi_timeout();
+    void              _build_cgi_response();
+    void              _build_cgi_error(HttpStatus::Code code);
     const ServerConfig *_get_config(const std::string &host);
 
     void _reset();
