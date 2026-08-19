@@ -168,10 +168,38 @@ Cgi::e_out Cgi::readOutput() {
   }
   if (bytes == 0)
   {
-    
+    int res;
+    do { res = waitpid(_pid, &_status, WNOHANG); }
+    while (res == -1 && errno == EINTR);
+    if (res == 0)
+    {
+      (void)kill(_pid, SIGKILL);
+      while(waitpid(_pid, &_status, 0) == -1 && errno == EINTR) {}
+    }
+    _reaped = true;
+    return DONE;
   }
+  return FAIL;
+}
+
+void Cgi::killChild() {
+  if (_pid > 0 && !_reaped)
+  {
+    (void)kill(_pid, SIGKILL);
+    while(waitpid(_pid, &_status, 0) == -1 && errno == EINTR) {}
+  }
+}
+
+bool Cgi::exitedCleanly() const {
+  return 
+  (
+    _reaped &&
+    WIFEXITED(_status) &&
+    WEXITSTATUS(_status) == EXIT_SUCCESS
+  );
 }
 
 Cgi::~Cgi()
 {
+  killChild();
 }
