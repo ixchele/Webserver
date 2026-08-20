@@ -231,6 +231,11 @@ void Client::_buildCgiResponse() {
     std::string body;
     bool in_headers = true;
     
+    size_t i = 0;
+    while (i < raw.size())
+    {
+        size_t nl = raw.find('\n', i);
+    }
 }
 
 const ServerConfig *Client::_getConfig(const std::string &host)
