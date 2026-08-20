@@ -1,5 +1,6 @@
 #include <RequestHandler.hpp>
 #include <HttpRequest.hpp>
+#include <timeout.hpp>
 #include <Client.hpp>
 #include <Logger.hpp>
 #include <Epoll.hpp>
@@ -16,7 +17,7 @@ Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
 {
 }
 
-Epoll::EventState Client::_receive_data()
+Epoll::EventState Client::_receiveData()
 {
     char buffer[APP_BUFFER_SIZE + 1];
 
@@ -32,7 +33,7 @@ Epoll::EventState Client::_receive_data()
     if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
     {
         const std::string host = _request.getHeader("host");
-        const ServerConfig &conf = *_get_config(host);
+        const ServerConfig &conf = *_getConfig(host);
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
         m_state = CSENDING_HEADERS;
@@ -49,7 +50,7 @@ Epoll::EventState Client::_receive_data()
     return Epoll::ECONTINUE;
 }
 
-Epoll::EventState Client::_send_data()
+Epoll::EventState Client::_sendData()
 {
     if (m_state == CSENDING_HEADERS || m_state == CTIMEDOUT)
     {
@@ -117,17 +118,25 @@ Epoll::EventState Client::handle_event(uint32_t event)
     {
         return Epoll::EERROR;
     }
+    if (m_state == CEXECUTING_CGI)
+    {
+        if (_cgi != NULL && time(NULL) - _cgi_start > CGI_TIMEOUT)
+        {
+            _cgiTimeout();
+            return Epoll::ECONTINUE;
+        }
+        return _handleCgiEvent();
+    }
     if (event & EPOLLIN)
     {
         m_state = CRECEVING;
-        return _receive_data();
+        return _receiveData();
     }
     if (event & EPOLLOUT)
     {
-        return _send_data();
+        return _sendData();
     }
-    else
-        return Epoll::EFINISHED;
+    return Epoll::EFINISHED;
 }
 
 int Client::startCgi(const std::string &interpreter, 
@@ -135,12 +144,11 @@ int Client::startCgi(const std::string &interpreter,
 {
     _cgi = new Cgi(_request, interpreter, script_path, body_fd);
     _cgi_start = time(NULL);
-_epoll
+
     if (_cgi->execute() != 0)
     {
-        delete _cgi;
-        _cgi = NULL;
-        _build_cgi_error(HttpStatus::InternalServerError);
+        delete _cgi; _cgi = NULL;
+        _buildCgiError(HttpStatus::InternalServerError);
         m_state = CSENDING_HEADERS;
         _epoll.edit_fd(m_fd, this, EPOLLOUT);
         return -1;
@@ -148,9 +156,8 @@ _epoll
     m_state = CEXECUTING_CGI;
     if (_epoll.add_fd(_cgi->getReadEnd(), this, EPOLLIN) != 0)
     {
-        delete _cgi;
-        _cgi = NULL;
-        _build_cgi_error(HttpStatus::InternalServerError);
+        delete _cgi; _cgi = NULL;
+        _buildCgiError(HttpStatus::InternalServerError);
         m_state = CSENDING_HEADERS;
         _epoll.edit_fd(m_fd, this, EPOLLOUT);
         return -1;
@@ -159,9 +166,36 @@ _epoll
     return 0;
 }
 
-void Client::handle_timeout()
+Epoll::EventState Client::_handleCgiEvent() {
+    Cgi::e_out result = _cgi->readOutput();
+
+    if (result == Cgi::MORE)
+        return Epoll::ECONTINUE;
+    
+    _epoll.del_fd(_cgi->getReadEnd());
+    if (result == Cgi::FAIL || !_cgi->exitedCleanly())
+    {
+        delete _cgi; _cgi = NULL;
+        _buildCgiError(HttpStatus::BadGateway);
+    }
+    else
+    {
+        _buildCgiResponse();
+        delete _cgi; _cgi = NULL;
+    }
+    m_state = CSENDING_HEADERS;
+    _epoll.add_fd(m_fd, this, EPOLLOUT);
+    return Epoll::ECONTINUE;
+}
+
+void Client::handleTimeout()
 {
     _reset();
+    if (m_state == CEXECUTING_CGI && _cgi != NULL)
+    {
+        _cgiTimeout();
+        return;
+    }
     m_state = CTIMEDOUT;
     _request.setErrorCode(HttpStatus::RequestTimeout);
     _request.setState(HttpRequest::ERROR);
@@ -170,7 +204,16 @@ void Client::handle_timeout()
     _epoll.edit_fd(m_fd, this, EPOLLOUT);
 }
 
-const ServerConfig *Client::_get_config(const std::string &host)
+void Client::_cgiTimeout() {
+    LOG_WARN << "CGI timed out on client with fd " << m_fd;
+    _epoll.del_fd(_cgi->getReadEnd());
+    delete _cgi; _cgi = NULL;
+    _buildCgiError(HttpStatus::GatewayTimeout);
+    m_state = CSENDING_HEADERS;
+    _epoll.add_fd(m_fd, this, EPOLLOUT);
+}
+
+const ServerConfig *Client::_getConfig(const std::string &host)
 {
     for (size_t i = 0; i < m_configs.size(); i++)
     {
@@ -197,5 +240,9 @@ void Client::_reset()
 
 Client::~Client()
 {
-    //
+    if (_cgi)
+    {
+        _epoll.del_fd(_cgi->getReadEnd());
+        delete _cgi; _cgi = NULL;
+    }
 }

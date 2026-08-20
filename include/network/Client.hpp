@@ -27,7 +27,7 @@ class Client : public AFd
     Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs);
 
     virtual Epoll::EventState handle_event(uint32_t event);
-    void handle_timeout();
+    void handleTimeout();
 
     int startCgi(const std::string &interpreter,
                   const std::string &script_path, int body_fd);
@@ -46,13 +46,13 @@ class Client : public AFd
     Cgi *_cgi;
     time_t _cgi_start;
 
-    Epoll::EventState _receive_data();
-    Epoll::EventState _send_data();
-    Epoll::EventState _handle_cgi_event();
-    void              _cgi_timeout();
-    void              _build_cgi_response();
-    void              _build_cgi_error(HttpStatus::Code code);
-    const ServerConfig *_get_config(const std::string &host);
+    Epoll::EventState _receiveData();
+    Epoll::EventState _sendData();
+    Epoll::EventState _handleCgiEvent();
+    void              _cgiTimeout();
+    void              _buildCgiResponse();
+    void              _buildCgiError(HttpStatus::Code code);
+    const ServerConfig *_getConfig(const std::string &host);
 
     void _reset();
 };
