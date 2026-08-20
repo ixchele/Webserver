@@ -11,7 +11,7 @@ NAME = webserv
 CXX = c++
 INC_DIRS := $(shell find include -type d)
 INCLUDES := $(addprefix -I, $(INC_DIRS))
-CPPFLAGS = -Wall -Wextra -Werror -std=c++98 $(INCLUDES)
+CPPFLAGS = -Wall -Wextra -Werror -std=c++98 -g3 $(INCLUDES)
 LFLAGS =  $(CPPFLAGS)
 SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
 		./main.cpp \

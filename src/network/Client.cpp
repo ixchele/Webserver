@@ -13,7 +13,7 @@
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
       m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0),
-      _file_offset(0)
+      _file_offset(0), _cgi(NULL), _cgi_start(0)
 {
 }
 
@@ -40,6 +40,10 @@ Epoll::EventState Client::_receiveData()
         // }
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
+        // if (rqst_handler.isCgi())
+        // {
+
+        // }
         m_state = CSENDING_HEADERS;
         if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
             return Epoll::EERROR;
