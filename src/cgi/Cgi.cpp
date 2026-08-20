@@ -199,6 +199,14 @@ bool Cgi::exitedCleanly() const {
   );
 }
 
+const std::string &Cgi::getOutput() const {
+  return _buffer;
+}
+
+int Cgi::getReadEnd() const {
+  return _outputPipe[0];
+}
+
 Cgi::~Cgi()
 {
   killChild();
