@@ -23,7 +23,7 @@ SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
 		./src/network/AFd.cpp ./src/network/Server.cpp ./src/network/Client.cpp \
 		./src/network/Multiplexer.cpp ./src/network/Epoll.cpp \
 		./src/http/HttpRequest.cpp ./src/http/RequestHandler.cpp ./src/http/Uri.cpp \
-		./src/http/HttpResponse.cpp ./src/http/HttpStatus.cpp
+		./src/http/HttpResponse.cpp ./src/http/HttpStatus.cpp ./src/cgi/Cgi.cpp
 
 OBJ = $(SRC:%.cpp=obj/%.o)
 

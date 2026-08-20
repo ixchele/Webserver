@@ -23,6 +23,17 @@ void	RequestHandler::handle(void) {
 
 	_route = _config.matchRoute(_request.getUri().getPath());
 
+	if (!_route->return_val.empty()) {
+		HttpStatus::Code	code = _route->return_status != 0
+			? static_cast<HttpStatus::Code>(_route->return_status)
+			: HttpStatus::Found;
+		_response.setStatusCode(code);
+		_response.setHeader("Location", _route->return_val);
+		_response.setHeader("Content-Type", "text/html");
+		_response.build();
+		return;
+	}
+
 	if (!_isBodySizeValid()) {
 		_buildErrorResponse(HttpStatus::PayloadTooLarge);
 		return;
@@ -160,12 +171,11 @@ void	RequestHandler::_handleGet(const std::string &real_path) {
 		return;
 	}
 
-	// TODO : plug isCgiExtension later
-
-	// if (_isCgiExtension(real_path)) {
-	// 	_handleCGI(real_path);
-	// 	return;
-	// }
+	// TODO: CGI execution comes later; only detection is wired now
+	if (_isCgiExtension(real_path)) {
+		_buildErrorResponse(HttpStatus::NotImplemented); // 501
+		return;
+	}
 
 	_response.setStatusCode(HttpStatus::OK); // 200
 
@@ -201,6 +211,17 @@ std::string	RequestHandler::_guessMimeType(const std::string &path) const {
 	if (ext == ".mp3")						return "audio/mpeg";
 
 	return "application/octet-stream";
+}
+
+bool	RequestHandler::_isCgiExtension(const std::string &real_path) const {
+	size_t	dot_pos = real_path.find_last_of('.');
+
+	if (dot_pos == std::string::npos)
+		return false;
+
+	std::string	ext = real_path.substr(dot_pos);
+
+	return _route->cgi_pass.find(ext) != _route->cgi_pass.end();
 }
 
 void    RequestHandler::_handleDirectory(const std::string &real_path) {

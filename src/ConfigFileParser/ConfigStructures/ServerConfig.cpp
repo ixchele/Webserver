@@ -42,6 +42,9 @@ void    ServerConfig::applyInheritance() {
 		if (location->return_val.empty() && !this->return_val.empty())
 			location->return_val = this->return_val;
 
+		if (location->return_status == 0 && this->return_status != 0)
+			location->return_status = this->return_status;
+
 		if (location->autoindex == false && this->autoindex == true)
 			location->autoindex = this->autoindex;
 

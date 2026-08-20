@@ -14,7 +14,7 @@
 Cgi::Cgi(HttpRequest &request, const std::string &interpreter,
       const std::string &script_path, int body_fd)
   : _request(request), _interpreter(interpreter),
-    _script_path(script_path), _body_fd(-1), _status(0),
+    _script_path(script_path), _body_fd(body_fd), _status(0),
     _pid(-1), _reaped(false), _start(0)
 {
   _setArgv();

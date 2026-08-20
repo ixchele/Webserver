@@ -224,18 +224,18 @@ void Client::_cgiTimeout() {
 }
 
 void Client::_buildCgiResponse() {
-    const std::string &raw = _cgi->getOutput();
+    // const std::string &raw = _cgi->getOutput();
 
-    HttpStatus::Code code = HttpStatus::OK;
-    std::map<std::string, std::string> headers;
-    std::string body;
-    bool in_headers = true;
+    // HttpStatus::Code code = HttpStatus::OK;
+    // std::map<std::string, std::string> headers;
+    // std::string body;
+    // bool in_headers = true;
     
-    size_t i = 0;
-    while (i < raw.size())
-    {
-        size_t nl = raw.find('\n', i);
-    }
+    // size_t i = 0;
+    // while (i < raw.size())
+    // {
+    //     size_t nl = raw.find('\n', i);
+    // }
 }
 
 const ServerConfig *Client::_getConfig(const std::string &host)

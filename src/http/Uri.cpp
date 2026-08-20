@@ -1,6 +1,7 @@
 #include <Uri.hpp>
 #include <sstream>
 #include <cstdlib>
+#include <vector>
 
 Uri::Uri() : _port(0) {}
 
@@ -75,6 +76,7 @@ bool Uri::parse(const std::string& raw_uri) {
 		return false;
 	}
 	_path = clean_path;
+	_normalizePath(_path);
 
 	return true;
 }
@@ -98,6 +100,45 @@ bool	Uri::_decodePercentEncoding(const std::string& str, std::string& decoded) c
 		}
 	}
 	return true;
+}
+
+void Uri::_normalizePath(std::string &path) const {
+	if (path.empty() || path[0] != '/')
+		return;
+
+	std::vector<std::string>	segments;
+	size_t	i = 0;
+
+	while (i < path.length()) {
+		size_t	start = i + 1;
+		size_t	end = path.find('/', start);
+
+		if (end == std::string::npos)
+			end = path.length();
+
+		std::string	segment = path.substr(start, end - start);
+
+		if (segment == "..") {
+			if (!segments.empty())
+				segments.pop_back();
+		} else if (!segment.empty() && segment != ".") {
+			segments.push_back(segment);
+		}
+
+		i = end;
+	}
+
+	std::string	normalized;
+
+	for (size_t j = 0; j < segments.size(); ++j) {
+		normalized += "/";
+		normalized += segments[j];
+	}
+
+	if (normalized.empty())
+		normalized = "/";
+
+	path = normalized;
 }
 
 const std::string& Uri::getOriginal() const { return _original; }
