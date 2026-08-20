@@ -52,6 +52,7 @@ class Client : public AFd
     void              _cgiTimeout();
     void              _buildCgiResponse();
     void              _buildCgiError(HttpStatus::Code code);
+    void              _buildError(HttpStatus::Code errCode);
     const ServerConfig *_getConfig(const std::string &host);
 
     void _reset();

@@ -34,6 +34,10 @@ Epoll::EventState Client::_receiveData()
     {
         const std::string host = _request.getHeader("host");
         const ServerConfig &conf = *_getConfig(host);
+        // if (_request.isCgi())
+        // {
+
+        // }
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
         m_state = CSENDING_HEADERS;
@@ -148,7 +152,7 @@ int Client::startCgi(const std::string &interpreter,
     if (_cgi->execute() != 0)
     {
         delete _cgi; _cgi = NULL;
-        _buildCgiError(HttpStatus::InternalServerError);
+        _buildError(HttpStatus::InternalServerError);
         m_state = CSENDING_HEADERS;
         _epoll.edit_fd(m_fd, this, EPOLLOUT);
         return -1;
@@ -157,7 +161,7 @@ int Client::startCgi(const std::string &interpreter,
     if (_epoll.add_fd(_cgi->getReadEnd(), this, EPOLLIN) != 0)
     {
         delete _cgi; _cgi = NULL;
-        _buildCgiError(HttpStatus::InternalServerError);
+        _buildError(HttpStatus::InternalServerError);
         m_state = CSENDING_HEADERS;
         _epoll.edit_fd(m_fd, this, EPOLLOUT);
         return -1;
@@ -176,7 +180,7 @@ Epoll::EventState Client::_handleCgiEvent() {
     if (result == Cgi::FAIL || !_cgi->exitedCleanly())
     {
         delete _cgi; _cgi = NULL;
-        _buildCgiError(HttpStatus::BadGateway);
+        _buildError(HttpStatus::BadGateway);
     }
     else
     {
@@ -190,27 +194,43 @@ Epoll::EventState Client::_handleCgiEvent() {
 
 void Client::handleTimeout()
 {
-    _reset();
     if (m_state == CEXECUTING_CGI && _cgi != NULL)
     {
         _cgiTimeout();
-        return;
     }
-    m_state = CTIMEDOUT;
-    _request.setErrorCode(HttpStatus::RequestTimeout);
+    else
+    {
+        m_state = CTIMEDOUT;
+        _buildError(HttpStatus::RequestTimeout);
+        _epoll.edit_fd(m_fd, this, EPOLLOUT);
+    }
+}
+
+void Client::_buildError(HttpStatus::Code errCode) {
+    _reset();
+    _request.setErrorCode(errCode);
     _request.setState(HttpRequest::ERROR);
     RequestHandler rqst_handler(_request, _response, *m_configs[0]);
     rqst_handler.handle();
-    _epoll.edit_fd(m_fd, this, EPOLLOUT);
 }
 
 void Client::_cgiTimeout() {
     LOG_WARN << "CGI timed out on client with fd " << m_fd;
     _epoll.del_fd(_cgi->getReadEnd());
     delete _cgi; _cgi = NULL;
-    _buildCgiError(HttpStatus::GatewayTimeout);
+    _buildError(HttpStatus::GatewayTimeout);
     m_state = CSENDING_HEADERS;
     _epoll.add_fd(m_fd, this, EPOLLOUT);
+}
+
+void Client::_buildCgiResponse() {
+    const std::string &raw = _cgi->getOutput();
+
+    HttpStatus::Code code = HttpStatus::OK;
+    std::map<std::string, std::string> headers;
+    std::string body;
+    bool in_headers = true;
+    
 }
 
 const ServerConfig *Client::_getConfig(const std::string &host)
