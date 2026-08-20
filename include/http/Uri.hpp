@@ -32,6 +32,7 @@ private:
     std::string     _fragment;
 
     bool	_decodePercentEncoding(const std::string& str, std::string &decoded) const;
+    void	_normalizePath(std::string &path) const;
 };
 
 #endif

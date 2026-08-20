@@ -14,6 +14,7 @@ struct	CommonConfig {
 	std::map<std::string, std::string>	cgi_pass;
 	std::map<int, std::string>			error_page;
 	std::string							return_val;
+	int									return_status;
 
 	CommonConfig(void);
 	virtual	~CommonConfig(void);

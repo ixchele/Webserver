@@ -6,7 +6,8 @@ CommonConfig::CommonConfig()
 	autoindex(false),
 	client_max_body_size(1024),
     methods(0),
-	return_val("") {
+	return_val(""),
+	return_status(0) {
 	// pass
 }
 
@@ -23,6 +24,7 @@ void	CommonConfig::resetConf(void) {
 	this->cgi_pass.clear();
 	this->error_page.clear();
 	this->return_val = "";
+	this->return_status = 0;
 }
 
 
@@ -64,6 +66,7 @@ std::string CommonConfig::str(const std::string& indent) const {
     }
 
     ss << indent << "return_val: " << (return_val.empty() ? "(empty)" : return_val) << "\n";
+    ss << indent << "return_status: " << return_status << "\n";
 
     return ss.str();
 }

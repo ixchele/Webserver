@@ -150,6 +150,9 @@ void	ConfigParser::returnDir() {
 	if (!(ssStatusCode >> statusCode) || !ssStatusCode.eof())
 		throw ConfigException("invalid return statusCode", *this->it);
 
+	if (statusCode < 300 || statusCode > 308)
+		throw ConfigException("return statusCode must be in 300-308", *this->it);
+
 	consume();
 
 	std::string			pathPage;
@@ -159,6 +162,7 @@ void	ConfigParser::returnDir() {
 		throw ConfigException("invalid return path", *this->it);
 
 	this->currentBlock->return_val = pathPage;
+	this->currentBlock->return_status = statusCode;
 
 	consume();
 	consume(";");
