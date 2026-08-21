@@ -141,12 +141,12 @@ int Cgi::execute() {
     }
 
     // I must remove this if I want to see the script errors
-    int blackhole = open("/dev/null", O_WRONLY);
-    if (blackhole != -1)
-    {
-      (void)dup2(blackhole, STDERR_FILENO);
-      (void)close(blackhole);
-    }
+    // int blackhole = open("/dev/null", O_WRONLY);
+    // if (blackhole != -1)
+    // {
+    //   (void)dup2(blackhole, STDERR_FILENO);
+    //   (void)close(blackhole);
+    // }
 
     std::string dir;
     size_t slash = _script_path.find_last_of('/');
@@ -206,6 +206,9 @@ void Cgi::killChild() {
 }
 
 bool Cgi::exitedCleanly() const {
+  LOG_DEBUG << "reaped " << _reaped;
+  LOG_DEBUG << "did exit " << WIFEXITED(_status);
+  LOG_DEBUG << "status " << WEXITSTATUS(_status);
   return 
   (
     _reaped &&
@@ -236,5 +239,5 @@ Cgi::~Cgi()
   if (_notify[0] != -1) (void)close(_notify[0]);
   if (_notify[1] != -1) (void)close(_notify[1]);
   if (_output_fd != -1) (void)close(_output_fd);
-  if (!_output_path.empty()) (void)unlink(_output_path.c_str());
+  // if (!_output_path.empty()) (void)unlink(_output_path.c_str());
 }

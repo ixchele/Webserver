@@ -51,7 +51,7 @@ Epoll::EventState Client::_receiveData()
             RequestHandler::CgiMode mode = rqst_handler.getCgiMode();
             LOG_DEBUG << "CGI hook: mode=" << mode << " script=" << script << " interp=" << interp
                       << " body_fd=" << body_fd << " body_path=" << body_path << " upload_dst=" << upload_dst;
-            
+            LOG_DEBUG << "script name: " << script;
             if (interp.empty() || script.empty())
             {
                 if (body_fd != -1)
@@ -142,10 +142,6 @@ Epoll::EventState Client::_sendData()
 Epoll::EventState Client::handle_event(uint32_t event)
 {
     // to do
-    if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
-    {
-        return Epoll::EERROR;
-    }
     if (m_state == CEXECUTING_CGI)
     {
         if (_cgi != NULL && time(NULL) - _cgi_start > CGI_TIMEOUT)
@@ -154,6 +150,10 @@ Epoll::EventState Client::handle_event(uint32_t event)
             return Epoll::ECONTINUE;
         }
         return _handleCgiEvent();
+    }
+    if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
+    {
+        return Epoll::EERROR;
     }
     if (event & EPOLLIN)
     {
@@ -203,6 +203,7 @@ Epoll::EventState Client::_handleCgiEvent() {
     _epoll.del_fd(_cgi->getReadEnd());
     if (result == Cgi::FAIL || !_cgi->exitedCleanly())
     {
+        LOG_DEBUG << "here " << _cgi->exitedCleanly();
         delete _cgi; _cgi = NULL;
         _buildError(HttpStatus::BadGateway);
     }
