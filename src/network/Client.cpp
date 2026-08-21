@@ -333,6 +333,13 @@ void Client::_buildCgiResponse() {
     _response.build();
 }
 
+bool Client::_parseCgiHeaders(const std::string &block,
+    HttpStatus::Code &status, bool &explicit_status,
+    std::map<std::string, std::string> &headers, bool &has_location)
+{
+    
+}
+
 const ServerConfig *Client::_getConfig(const std::string &host)
 {
     for (size_t i = 0; i < m_configs.size(); i++)
