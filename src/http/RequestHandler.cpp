@@ -1,4 +1,6 @@
 #include "RequestHandler.hpp"
+#include <cstdlib>
+#include <linux/limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sstream>
@@ -33,6 +35,8 @@ void	RequestHandler::handle(void) {
 		_response.setStatusCode(code);
 		_response.setHeader("Location", _route->return_val);
 		_response.setHeader("Content-Type", "text/html");
+		_response.setHeader("Content-Lenght", "0");
+		_response.setHeader("Connection", "close");
 		_response.build();
 		return;
 	}
@@ -110,7 +114,12 @@ std::string	RequestHandler::_resolvePath(void) const {
 	else if (path.length() > 0 && path[path.length() - 1] != '/' && uri_path.length() > 0 && uri_path[0] != '/')
 		path += "/";
 
-	return path + uri_path;
+	char	buff[PATH_MAX];
+
+	if (realpath((path + uri_path).c_str(), buff) != NULL) {
+		return std::string(buff);
+	}
+	return "";
 }
 
 

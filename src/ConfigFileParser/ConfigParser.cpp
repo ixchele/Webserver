@@ -16,7 +16,7 @@ std::ostream& operator<<(std::ostream& os, const Token& t) {
 }
 
 ConfigParser::ConfigParser(const TokenList &tokenList)
-	: tokenList(tokenList), it(tokenList.begin()){
+	: tokenList(tokenList), it(this->tokenList.begin()){
 
 	this->serverDirectives["listen"] = &ConfigParser::listenDir;
 	this->serverDirectives["host"] = &ConfigParser::hostDir;
