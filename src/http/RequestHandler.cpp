@@ -44,7 +44,6 @@ void	RequestHandler::handle(void) {
 	{
 		std::string real_path_tmp = _route ? _resolvePath() : _request.getUri().getPath();
 		if (isCgiRequest(real_path_tmp)) {
-			LOG_DEBUG << "CGI detected: " << real_path_tmp << " mode=" << getCgiMode();
 			return;
 		}
 	}
@@ -173,8 +172,6 @@ void	RequestHandler::_buildErrorResponse(HttpStatus::Code code) {
 
 void	RequestHandler::_handleGet(const std::string &real_path) {
 	struct stat	file_stat;
-
-	LOG_DEBUG << "real path = " << real_path;
 
 	if (stat(real_path.c_str(), &file_stat) != 0) {
 		_buildErrorResponse(HttpStatus::NotFound); // 404
@@ -378,7 +375,6 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 		if (stat(test_path.c_str(), &file_stat) == 0 && access(test_path.c_str(), R_OK) == 0 && !S_ISDIR(file_stat.st_mode)) {
 			target_index_path = test_path;
 			index_found = true;
-			LOG_DEBUG << "Target index path = " << target_index_path;
 			break;
 		}
 	}
@@ -481,17 +477,15 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 	if (!tmp_path.empty()) {
 		struct stat st;
 		if (stat(tmp_path.c_str(), &st) != 0) {
-			LOG_DEBUG << "tmp file not found: " << tmp_path << " : " << strerror(errno);
 			_buildErrorResponse(HttpStatus::InternalServerError);
 			return;
 		}
-		LOG_DEBUG << "POST rename tmp " << tmp_path << " -> " << full_path;
 		if (::rename(tmp_path.c_str(), full_path.c_str()) != 0) {
 			if (errno == EXDEV) {
 				std::ifstream src(tmp_path.c_str(), std::ios::binary);
 				std::ofstream dst(full_path.c_str(), std::ios::binary | std::ios::trunc);
 				if (!src.is_open() || !dst.is_open()) {
-					LOG_DEBUG << "cross-device copy failed: src=" << tmp_path << " dst=" << full_path << " : " << strerror(errno);
+					LOG_ERROR << "cross-device copy failed: src=" << tmp_path << " dst=" << full_path << " : " << strerror(errno);
 					_buildErrorResponse(HttpStatus::InternalServerError);
 					return;
 				}
@@ -504,7 +498,7 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 				dst.close();
 				::unlink(tmp_path.c_str());
 			} else {
-				LOG_DEBUG << "rename(" << tmp_path << " -> " << full_path << ") failed: " << strerror(errno);
+				LOG_ERROR << "rename(" << tmp_path << " -> " << full_path << ") failed: " << strerror(errno);
 				_buildErrorResponse(HttpStatus::InternalServerError);
 				return;
 			}

@@ -48,10 +48,6 @@ Epoll::EventState Client::_receiveData()
             std::string upload_dst = rqst_handler.getUploadDestination();
             std::string script = rqst_handler.getCgiScriptPath();
             std::string interp = rqst_handler.getCgiInterpreter();
-            RequestHandler::CgiMode mode = rqst_handler.getCgiMode();
-            LOG_DEBUG << "CGI hook: mode=" << mode << " script=" << script << " interp=" << interp
-                      << " body_fd=" << body_fd << " body_path=" << body_path << " upload_dst=" << upload_dst;
-            LOG_DEBUG << "script name: " << script;
             if (interp.empty() || script.empty())
             {
                 if (body_fd != -1)
@@ -68,12 +64,6 @@ Epoll::EventState Client::_receiveData()
         if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
             return Epoll::EERROR;
     }
-
-    LOG_DEBUG << "The Request of client on fd " << m_fd << ":"
-              << "\tMethod: " << _request.getMethod()
-              << "\tPath: " << _request.getUri().getPath()
-              << "\tVersion: " << _request.getVersion()
-              << "\tconnection: " << _request.getHeader("connection");
 
     return Epoll::ECONTINUE;
 }
@@ -130,7 +120,6 @@ Epoll::EventState Client::_sendData()
     if (m_state == CFINISHED && _request.getHeader("connection") == "keep-alive")
     {
         m_state = CKEEPT_ALIVE;
-        LOG_DEBUG << "Client with fd " << m_fd << " will be keept alive";
         if (_epoll.edit_fd(m_fd, this, EPOLLIN))
             return Epoll::EERROR;
         _reset();
@@ -203,7 +192,6 @@ Epoll::EventState Client::_handleCgiEvent() {
     _epoll.del_fd(_cgi->getReadEnd());
     if (result == Cgi::FAIL || !_cgi->exitedCleanly())
     {
-        LOG_DEBUG << "here " << _cgi->exitedCleanly();
         delete _cgi; _cgi = NULL;
         _buildError(HttpStatus::BadGateway);
     }
@@ -319,7 +307,6 @@ void Client::_buildCgiResponse() {
         status = HttpStatus::Found;
     
     const off_t body_size = file_size - static_cast<off_t>(body_start);
-    LOG_DEBUG << "CGI -> status " << status << ", body " << body_size << " bytes";
     
     _response.setStatusCode(status);
 
@@ -329,6 +316,10 @@ void Client::_buildCgiResponse() {
         const std::string lname = _lower(it->first);
         if (lname == "status" || lname == "content-length")
             continue;
+        if (_request.getHeader("Cookie") != "")
+        {
+            _response.setHeader("Set-Cookie", _request.getHeader("Cookie"));
+        }
         _response.setHeader(it->first, it->second);
     }
     if (body_size == 0)

@@ -206,9 +206,6 @@ void Cgi::killChild() {
 }
 
 bool Cgi::exitedCleanly() const {
-  LOG_DEBUG << "reaped " << _reaped;
-  LOG_DEBUG << "did exit " << WIFEXITED(_status);
-  LOG_DEBUG << "status " << WEXITSTATUS(_status);
   return 
   (
     _reaped &&
