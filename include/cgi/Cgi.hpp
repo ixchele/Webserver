@@ -27,9 +27,10 @@ public:
   void killChild();
 
   int getReadEnd() const;
+  int getOutputFd() const;
+  const std::string &getOutputPath() const;
   pid_t getPid() const;
   bool exitedCleanly() const;
-  const std::string &getOutput() const;
 
 private:
   HttpRequest &_request;
@@ -37,20 +38,20 @@ private:
   std::string _script_path;
   int _body_fd;
 
-  int _outputPipe[2];
+  int _notify[2];
+  int _output_fd;
+  std::string _output_path;
   int _status;
   pid_t _pid;
   bool _reaped;
   time_t _start;
 
-  std::string _buffer;
   std::vector<std::string> _env;
   std::vector<const char *> _cenv;
   std::vector<const char *> _cargv;
 
   void _setArgv();
   void _setEnv();
-  void _reap();
 };
 
 #endif
