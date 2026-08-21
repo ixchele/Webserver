@@ -11,7 +11,6 @@
 #include <iostream>
 #include <cerrno>
 #include <cstring>
-// #include <Response.hpp>
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
@@ -52,14 +51,18 @@ Epoll::EventState Client::_receiveData()
             RequestHandler::CgiMode mode = rqst_handler.getCgiMode();
             LOG_DEBUG << "CGI hook: mode=" << mode << " script=" << script << " interp=" << interp
                       << " body_fd=" << body_fd << " body_path=" << body_path << " upload_dst=" << upload_dst;
-            if (body_fd != -1)
-                ::close(body_fd);
-            if (_response.getHeaderBuffer().empty()) {
-                _response.setStatusCode(HttpStatus::NotImplemented);
-                _response.setHeader("Content-Type", "text/plain");
-                _response.setBody("CGI hook ready - to be implemented by friend");
-                _response.build();
+            
+            if (interp.empty() || script.empty())
+            {
+                if (body_fd != -1)
+                    ::close(body_fd);
             }
+            else if (startCgi(interp, script, body_fd) != 0)
+            {
+                // the error is built inside startCgi()
+            }
+            else
+                return Epoll::ECONTINUE;
         }
         m_state = CSENDING_HEADERS;
         if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
@@ -262,7 +265,7 @@ void Client::_buildCgiResponse() {
     size_t body_start = std::string::npos;
     ssize_t n;
 
-    while ((n = pread(_cgi->getOutputFd(), chunk, sizeof(chunk), read_at) > 0))
+    while ((n = pread(_cgi->getOutputFd(), chunk, sizeof(chunk), read_at)) > 0)
     {
         window.append(chunk, static_cast<size_t>(n));
         read_at += n;
@@ -289,7 +292,7 @@ void Client::_buildCgiResponse() {
     }
     if (n == -1)
     {
-        LOG_ERROR << "pread(cgi_output) -> " << strerror(errno);
+        LOG_ERROR << "pread(cgi_output) -> " << -1;
         _buildError(HttpStatus::BadGateway);
         return;
     }
@@ -323,7 +326,7 @@ void Client::_buildCgiResponse() {
     for (it = headers.begin(); it != headers.end(); ++it)
     {
         const std::string lname = _lower(it->first);
-        if (lname == "satatus" || lname == "content-length")
+        if (lname == "status" || lname == "content-length")
             continue;
         _response.setHeader(it->first, it->second);
     }
@@ -370,9 +373,82 @@ bool Client::_parseCgiHeaders(const std::string &block,
 
         if (line.compare(0, 5, "HTTP/") == 0)
         {
-            if ()
-        } 
+            if (!_extractStatusLine(line, status))
+                return false;
+            explicit_status = true;
+            continue;
+        }
+        if (_lower(line).compare(0, 7, "status:") == 0)
+        {
+            if (!_parseStatusNumber(line.substr(7), status))
+                return false;
+            explicit_status = true;
+            continue;
+        }
+        size_t colon = line.find(':');
+        if (colon == std::string::npos || colon == 0)
+            return false;
+        std::string name  = line.substr(0, colon);
+        std::string value = line.substr(colon + 1);
+        for (size_t i = 0; i < name.size(); ++i)
+        {
+            char c = name[i];
+            bool ok = ::isalnum(c) || c == '-' || c == '_';
+            if (!ok)
+                return false;
+        }
+        size_t b = value.find_first_not_of(" \t");
+        if (b == std::string::npos)
+            value.clear();
+        else
+        {
+            size_t e = value.find_last_not_of(" \t");
+            value = value.substr(b, e-b+1);
+        }
+        for (size_t i = 0; i < value.size(); ++i)
+        {
+            if ((unsigned char)value[i] < 32 && value[i] != '\t')
+                return false;
+        }
+        if (_lower(name) == "location")
+            has_location = true;
+        headers[name] = value;
     }
+    return true;
+}
+
+bool Client::_extractStatusLine(const std::string &line, HttpStatus::Code &status) {
+    size_t sp = line.find(' ');
+    if (sp == std::string::npos)
+        return false;
+    return _parseStatusNumber(line.substr(sp + 1), status);
+}
+
+bool Client::_parseStatusNumber(const std::string &s, HttpStatus::Code &status) {
+    size_t i = s.find_first_not_of(" \t");
+    if (i == std::string::npos)
+        return false;
+    int code = 0;
+    while (i < s.size() && isdigit((unsigned char)s[i]))
+    {
+        code = code * 10 + (s[i] - '0');
+        if (code > 999)
+            return false;
+        ++i;
+    }
+    if (code < 100)
+        return false;
+    status = static_cast<HttpStatus::Code>(code);
+    return true;
+}
+
+std::string Client::_lower(const std::string &s) const {
+    std::string out = s;
+    for (size_t i = 0; i < out.size(); ++i)
+    {
+        out[i] = static_cast<char>(::tolower((unsigned char)out[i]));
+    }
+    return out;
 }
 
 const ServerConfig *Client::_getConfig(const std::string &host)

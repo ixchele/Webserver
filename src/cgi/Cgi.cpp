@@ -235,5 +235,5 @@ Cgi::~Cgi()
   if (_notify[0] != -1) (void)close(_notify[0]);
   if (_notify[1] != -1) (void)close(_notify[1]);
   if (_output_fd != -1) (void)close(_output_fd);
-  if (_output_path.empty()) (void)unlink(_output_path.c_str());
+  if (!_output_path.empty()) (void)unlink(_output_path.c_str());
 }
