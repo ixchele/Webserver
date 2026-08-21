@@ -6,6 +6,7 @@
 #include <HttpResponse.hpp>
 #include <Epoll.hpp>
 #include <AFd.hpp>
+#include <Cgi.hpp>
 #include <vector>
 #include <ctime>
 #include <list>
@@ -26,7 +27,10 @@ class Client : public AFd
     Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs);
 
     virtual Epoll::EventState handle_event(uint32_t event);
-    void handle_timeout();
+    void handleTimeout();
+
+    int startCgi(const std::string &interpreter,
+                  const std::string &script_path, int body_fd);
 
     virtual ~Client();
 
@@ -39,9 +43,27 @@ class Client : public AFd
     ssize_t _bytes_sent;
     off_t _file_offset;
 
-    Epoll::EventState _receive_data();
-    Epoll::EventState _send_data();
-    const ServerConfig *_get_config(const std::string &host);
+    Cgi *_cgi;
+    time_t _cgi_start;
+    off_t _cgi_body_off;
+
+    bool _parseCgiHeaders(const std::string &block,
+                          HttpStatus::Code &status,
+                          bool &explicit_status,
+                          std::map<std::string, std::string> &headers,
+                          bool &has_location);
+
+    bool _extractStatusLine(const std::string &line, HttpStatus::Code &status);
+    bool _parseStatusNumber(const std::string &s, HttpStatus::Code &status);
+    std::string _lower(const std::string& s) const;
+  
+    Epoll::EventState _receiveData();
+    Epoll::EventState _sendData();
+    Epoll::EventState _handleCgiEvent();
+    void              _cgiTimeout();
+    void              _buildCgiResponse();
+    void              _buildError(HttpStatus::Code errCode);
+    const ServerConfig *_getConfig(const std::string &host);
 
     void _reset();
 };

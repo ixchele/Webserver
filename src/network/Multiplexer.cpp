@@ -1,11 +1,12 @@
-#include <Epoll.hpp>
-#include <Logger.hpp>
 #include <Multiplexer.hpp>
+#include <timeout.hpp>
+#include <Logger.hpp>
+#include <Epoll.hpp>
+#include <sys/epoll.h>
+#include <string.h>
+#include <stdexcept>
 #include <iostream>
 #include <map>
-#include <stdexcept>
-#include <string.h>
-#include <sys/epoll.h>
 
 Multiplexer::Multiplexer(const std::vector<ServerConfig> &v_configs)
 {
@@ -118,9 +119,10 @@ void Multiplexer::_handle_timeout()
             timeout = MAIN_TIMEOUT;
         if (now - client->m_lastActivity > timeout)
         {
-            if (client->m_state == Client::CRECEVING)
+            if (client->m_state == Client::CRECEVING ||
+                client->m_state == Client::CEXECUTING_CGI)
             {
-                client->handle_timeout();
+                client->handleTimeout();
                 _clientsList.pop_front();
                 client->m_lastActivity = time(NULL);
                 _clientsList.push_back(client);

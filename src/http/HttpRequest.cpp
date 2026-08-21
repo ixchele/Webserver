@@ -37,6 +37,16 @@ HttpStatus::Code	HttpRequest::getErrorCode() const { return _code; }
 
 HttpRequest::Method	HttpRequest::getMethod() const { return _method; }
 
+std::string	HttpRequest::getMethodStr() const {
+	switch(_method)
+	{
+		case HTTP_GET:		return "GET";
+		case HTTP_POST:		return "POST";
+		case HTTP_DELETE:	return "DELETE";
+		default: return "";
+	}
+}
+
 const Uri	&HttpRequest::getUri() const { return _uri; }
 
 const std::string	&HttpRequest::getVersion() const { return _version; }

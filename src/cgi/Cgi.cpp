@@ -1,118 +1,239 @@
 #include <Logger.hpp>
 #include <Cgi.hpp>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <algorithm>
 #include <cstring>
+#include <cstdlib>
+#include <cerrno>
 #include <string>
 #include <map>
 
-Cgi::Cgi(HttpRequest &request)
-  : AFd(-1, AFd::CGI), _request(request), _pid(-1), _status(0)
+Cgi::Cgi(HttpRequest &request, const std::string &interpreter,
+      const std::string &script_path, int body_fd)
+  : _request(request), _interpreter(interpreter),
+    _script_path(script_path), _body_fd(body_fd),
+    _output_fd(-1), _status(0),
+    _pid(-1), _reaped(false), _start(0)
 {
-  _set_env();
-  if (pipe(_outputPipe) == -1)
-  {
-    LOG_ERROR << "pipe() -> " << strerror(errno);
-  }
-  if (request.getMethod() == HttpMethod::HTTP_POST)
-  {
-    
-  }
+  _notify[0] = -1;
+  _notify[1] = -1;
+  _setArgv();
+  _setEnv();
 }
 
-Cgi::~Cgi()
-{
+void Cgi::_setArgv() {
+  _cargv.push_back(_interpreter.c_str());
+  _cargv.push_back(_script_path.c_str());
+  _cargv.push_back(NULL);
 }
 
-int Cgi::get_pid(void) {
-  return _pid;
+void Cgi::_setEnv() {
+  _env.push_back("GATEWAY_INTERFACE=CGI/1.1");
+  _env.push_back("SERVER_PROTOCOL=" + _request.getVersion());
+  _env.push_back("SERVER_SOFTWARE=webserv/1.0");
+
+  std::string host = _request.getHeader("host");
+  std::string name;
+  std::string port;
+  size_t colon = host.find(':');
+  if (colon != std::string::npos)
+  {
+    name = host.substr(0, colon);
+    port = host.substr(colon + 1);
+  }
+  _env.push_back("SERVER_NAME=" + name);
+  _env.push_back("SERVER_PORT=" + port);
+
+  _env.push_back("REQUEST_METHOD=" + _request.getMethodStr());
+  _env.push_back("REQUEST_URI=" + _request.getUri().getOriginal());
+  _env.push_back("SCRIPT_NAME=" + _request.getUri().getPath());
+  _env.push_back("SCRIPT_FILEENAME=" + _script_path);
+  _env.push_back("QUERY_STRING=" + _request.getUri().getQuery());
+
+  if (_body_fd != -1)
+  {
+    struct stat st;
+    if (fstat(_body_fd, &st) == 0)
+    {
+      std::ostringstream oss;
+      oss << st.st_size;
+      _env.push_back("CONTENT_LENGTH=" + oss.str());
+    }
+  }
+  std::string content_type = _request.getHeader("content-type");
+  if (content_type != "")
+    _env.push_back("CONTENT_TYPE=" + content_type);
+
+  std::map<std::string, std::string>::const_iterator it;
+  for (it = _request.getHeaders().begin(); it != _request.getHeaders().end(); ++it)
+  {
+    const std::string &nm = it->first;
+    const std::string &vl = it->second;
+
+    if (nm == "content-length" || nm == "content-type")
+      continue;
+
+    std::string env = "HTTP_";
+    for (size_t i = 0; i < nm.size(); ++i)
+    {
+      env += (nm[i] == '-') ? '_' : static_cast<char>(::toupper(nm[i]));
+    }
+    _env.push_back(env + "=" + vl);
+  }
+
+  for (size_t i = 0; i < _env.size(); ++i)
+    _cenv.push_back(_env[i].c_str());
+  _cenv.push_back(NULL);
 }
 
 int Cgi::execute() {
+  if (pipe(_notify) == -1)
+  {
+    LOG_ERROR << "pipe() -> " << strerror(errno);
+    return -1;
+  }
+  if (fcntl(_notify[0], F_SETFL, O_NONBLOCK) == -1)
+  {
+    LOG_ERROR << "fcntl() -> " << strerror(errno);
+    (void)close(_notify[0]); _notify[0] = -1;
+    (void)close(_notify[1]); _notify[1] = -1;
+    return -1;
+  }
+
+  char tmpl[] = "/tmp/_cgi_XXXXXX";
+  _output_fd = mkstemp(tmpl);
+  if (_output_fd == -1)
+  {
+    LOG_ERROR << "mkstemp() -> " << strerror(errno);
+    (void)close(_notify[0]); _notify[0] = -1;
+    (void)close(_notify[1]); _notify[1] = -1;
+    return -1;
+  }
+  _output_path = tmpl;
+
   _pid = fork();
   if (_pid == -1)
   {
     LOG_ERROR << "fork() -> " << strerror(errno);
+    (void)close(_notify[0]); _notify[0] = -1;
+    (void)close(_notify[1]); _notify[1] = -1;
+    (void)close(_output_fd); _output_fd = -1;
+    unlink(_output_path.c_str()); _output_path.clear();
     return -1;
   }
 
   if (_pid == 0)
   {
-    dup2(_outputPipe[1], 1);
-    if (execve(_request.getUri().getPath().c_str(), (char **)(&_cargv[0]), environ) == -1)
+    (void)close(_notify[0]);
+    (void)dup2(_output_fd, STDOUT_FILENO);
+    (void)close(_output_fd);
+
+    int input = (_body_fd != -1) ? _body_fd : open("/dev/null", O_RDONLY);
+    if (input != -1)
     {
-      LOG_ERROR << "execve() " << strerror(errno);
-      exit(1);
+      (void)lseek(input, 0, SEEK_SET);
+      (void)dup2(input, STDIN_FILENO);
+      (void)close(input);
     }
+
+    // I must remove this if I want to see the script errors
+    int blackhole = open("/dev/null", O_WRONLY);
+    if (blackhole != -1)
+    {
+      (void)dup2(blackhole, STDERR_FILENO);
+      (void)close(blackhole);
+    }
+
+    std::string dir;
+    size_t slash = _script_path.find_last_of('/');
+    if (slash == std::string::npos)
+      dir = ".";
+    else if (slash == 0)
+      dir = "/";
+    else
+      dir = _script_path.substr(0, slash);
+    (void)chdir(dir.c_str());
+
+    execve(_cargv[0], (char *const *)&_cargv[0], (char *const *)&_cenv[0]);
+    LOG_ERROR << "execve(" << _interpreter << ") -> " << strerror(errno);
+    _exit(127);
   }
-  close (_outputPipe[1]);
+
+  (void)close(_notify[1]); _notify[1] = -1;
+
+  if (_body_fd != -1)
+  {
+    (void)close(_body_fd);
+    _body_fd = -1;
+  }
+  _start = time(NULL);
+  return 0;
 }
 
-int Cgi::waiter() {
-  if (_pid == -1)
+Cgi::e_out Cgi::readOutput() {
+  char junk[64];
+  ssize_t bytes = read(_notify[0], junk, sizeof(junk));
+  if (bytes > 0)
   {
-    LOG_WARN << "Cgi::waiter() called while _pid = -1";
+    return MORE;
   }
-  int ret = waitpid(_pid, &_status, WNOHANG);
-  if (ret == -1)
+  if (bytes == 0)
   {
-    LOG_ERROR << "waitpid() -> " << strerror(errno);
-    return -1;
+    int res;
+    do { res = waitpid(_pid, &_status, WNOHANG); }
+    while (res == -1 && errno == EINTR);
+    if (res == 0)
+    {
+      (void)kill(_pid, SIGKILL);
+      while(waitpid(_pid, &_status, 0) == -1 && errno == EINTR) {}
+    }
+    _reaped = true;
+    return DONE;
   }
-  else if (ret == 0)
+  return FAIL;
+}
+
+void Cgi::killChild() {
+  if (_pid > 0 && !_reaped)
   {
-    return 0;
-  }
-  else
-  {
-    return ret;
+    (void)kill(_pid, SIGKILL);
+    while(waitpid(_pid, &_status, 0) == -1 && errno == EINTR) {}
   }
 }
 
-Epoll::EventState Cgi::handle_event(uint32_t event) {
-  if (event & EPOLLIN)
-  {
-    char cbuffer[PIPE_BUFFER_SIZE + 1];
-    int bytes = recv(m_fd, cbuffer,PIPE_BUFFER_SIZE, 0);
-    if (bytes == 0)
-    {
-      LOG_WARN << "recv() from fd " << m_fd << " returnred " << bytes;
-      return Epoll::EERROR;
-    }
-    else if (bytes == -1)
-    {
-      LOG_ERROR << "recv() from fd " << m_fd << " returnred " << bytes;
-      return Epoll::EERROR;
-    }
-    _buffer += cbuffer;
-    LOG_DEBUG << "Cgi with fd " << m_fd << " wrote:\n" << _buffer;
-  }
-  return Epoll::EFINISHED;
+bool Cgi::exitedCleanly() const {
+  return 
+  (
+    _reaped &&
+    WIFEXITED(_status) &&
+    WEXITSTATUS(_status) == EXIT_SUCCESS
+  );
 }
 
-void Cgi::_set_env() {
-  std::map<std::string, std::string>::const_iterator HeadIt;
-  std::string var;
+int Cgi::getReadEnd() const {
+  return _notify[0];
+}
 
-  for (HeadIt = _request.getHeaders().begin(); HeadIt != _request.getHeaders().end(); ++HeadIt)
-  {
-    var.clear();
-    std::string::const_iterator strIt;
-    for (strIt = HeadIt->first.begin(); strIt != HeadIt->first.end(); ++strIt)
-    {
-      if (*strIt == '-')
-        var += '_';
-      else
-        var += ::toupper(*strIt);
-    }
-    var += '=';
-    for (strIt = HeadIt->second.begin(); strIt != HeadIt->second.end(); ++strIt)
-    {
-      var += *strIt;
-    }
-    _env.push_back(var);
-    _cenv.push_back(var.c_str());
-  }
-  _cenv.push_back(NULL);
+int Cgi::getOutputFd() const {
+  return _output_fd;
+}
+
+const std::string& Cgi::getOutputPath() const {
+  return _output_path;
+}
+
+pid_t Cgi::getPid() const {
+  return _pid;
+}
+
+Cgi::~Cgi()
+{
+  killChild();
+  if (_notify[0] != -1) (void)close(_notify[0]);
+  if (_notify[1] != -1) (void)close(_notify[1]);
+  if (_output_fd != -1) (void)close(_output_fd);
+  if (!_output_path.empty()) (void)unlink(_output_path.c_str());
 }

@@ -132,4 +132,5 @@ void HttpResponse::reset()
 		_file_fd = -1;
 	}
 	_has_file = false;
+	_file_size = 0;
 }

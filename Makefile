@@ -11,7 +11,7 @@ NAME = webserv
 CXX = c++
 INC_DIRS := $(shell find include -type d)
 INCLUDES := $(addprefix -I, $(INC_DIRS))
-CPPFLAGS = -Wall -Wextra -Werror -std=c++98 $(INCLUDES)
+CPPFLAGS = -Wall -Wextra -Werror -std=c++98 -g3 $(INCLUDES)
 LFLAGS =  $(CPPFLAGS)
 SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
 		./main.cpp \
@@ -23,7 +23,7 @@ SRC = ./src/ConfigFileParser/Tokenizer/tokenizer.cpp \
 		./src/network/AFd.cpp ./src/network/Server.cpp ./src/network/Client.cpp \
 		./src/network/Multiplexer.cpp ./src/network/Epoll.cpp \
 		./src/http/HttpRequest.cpp ./src/http/RequestHandler.cpp ./src/http/Uri.cpp \
-		./src/http/HttpResponse.cpp ./src/http/HttpStatus.cpp
+		./src/http/HttpResponse.cpp ./src/http/HttpStatus.cpp ./src/cgi/Cgi.cpp
 
 OBJ = $(SRC:%.cpp=obj/%.o)
 
