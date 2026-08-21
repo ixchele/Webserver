@@ -447,7 +447,6 @@ const ServerConfig *Client::_getConfig(const std::string &host)
 {
     for (size_t i = 0; i < m_configs.size(); i++)
     {
-        // todo : use std::find
         for (size_t n = 0; n < m_configs[i]->names.size(); n++)
         {
             if (m_configs[i]->names[n] == host)
