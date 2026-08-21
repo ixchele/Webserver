@@ -21,7 +21,7 @@ class HttpRequest {
 		};
 
 		HttpRequest(int client_fd);
-		// ~HttpRequest();
+		~HttpRequest();
 
 		void	parse(const std::string &raw_data);
 		void	parse(const char *data, size_t len);
@@ -41,6 +41,9 @@ class HttpRequest {
 		std::string	getHeader(const std::string &name) const;
 
 		bool isBufferEmpty();
+
+		int		openBodyFile() const;
+		bool	hasBodyFile() const;
 
 		void	setState(ParseState state);
 		void	setErrorCode(HttpStatus::Code code);
@@ -89,5 +92,7 @@ class HttpRequest {
 		void	_processBody(void);
 		void	_processChunked(void);
 		bool	_parseChunkSize(const std::string &line);
+		bool	_createTempFile(void);
+		void	_closeBodyFile(void);
 		// void	_extractLeftover();
 };
