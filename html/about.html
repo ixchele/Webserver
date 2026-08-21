@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Webserv</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        body { font-family: 'Orbitron', sans-serif; overflow: hidden; }
+        .star { position: absolute; background-color: white; border-radius: 50%; animation: twinkle linear infinite; }
+        .main-title { animation: float 6s ease-in-out infinite; text-shadow: 0 0 15px rgba(77, 145, 255, 0.7), 0 0 30px rgba(77, 145, 255, 0.5); }
+        .rocket { animation: rocket-fly 10s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
+        @keyframes twinkle { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+        @keyframes rocket-fly { 0% { transform: translateY(20px) rotate(-45deg); } 50% { transform: translateY(-20px) rotate(-45deg); } 100% { transform: translateY(20px) rotate(-45deg); } }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+    
+    <!-- Starfield Background -->
+    <div id="starfield" class="absolute top-0 left-0 w-full h-full"></div>
+
+    <div class="text-center z-10 p-8 bg-black bg-opacity-50 rounded-2xl backdrop-blur-sm border border-blue-500/30">
+        <div class="relative inline-block">
+            <h1 class="main-title text-8xl md:text-9xl font-bold text-blue-400">WEBSERV</h1>
+            <div class="rocket absolute -top-10 -right-20 text-6xl">🚀</div>
+        </div>
+        <h2 class="mt-8 text-3xl md:text-4xl font-bold text-gray-200">WELCOME TO THE GALAXY</h2>
+        
+        <div class="mt-8 space-x-4">
+             <a href="/cgi-bin/test.php" class="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                Test CGI
+            </a>
+            <a href="multipart.html" class="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                Test Upload
+            </a>
+            <a href="movie.html" class="inline-block bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                Watch Movie
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Starfield Generation
+        const starfield = document.getElementById('starfield');
+        for (let i = 0; i < 200; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const size = Math.random() * 3 + 1;
+            star.style.width = `${size}px`;
+            star.style.height = `${size}px`;
+            star.style.top = `${Math.random() * 100}%`;
+            star.style.left = `${Math.random() * 100}%`;
+            star.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            star.style.animationDelay = `${Math.random() * 3}s`;
+            starfield.appendChild(star);
+        }
+    </script>
+</body>
+</html>

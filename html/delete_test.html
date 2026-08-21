@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DELETE Method Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        body { font-family: 'Orbitron', sans-serif; overflow: hidden; }
+        .star { position: absolute; background-color: white; border-radius: 50%; animation: twinkle linear infinite; }
+        @keyframes twinkle { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+
+    <div id="starfield" class="absolute top-0 left-0 w-full h-full"></div>
+
+    <div class="text-center z-10 p-8 bg-black bg-opacity-50 rounded-2xl backdrop-blur-sm border border-red-500/30 max-w-lg w-full">
+        <h1 class="text-6xl font-bold text-red-400">DELETE</h1>
+        <h2 class="mt-4 text-2xl font-bold text-gray-200">TARGET DESTRUCTION PROTOCOL</h2>
+        <p class="mt-2 text-gray-400">Enter the name of a file in your server's configured upload/delete directory to erase it.</p>
+        
+        <div class="mt-6">
+            <input type="text" id="filename" class="bg-gray-800 border border-gray-600 text-white text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block w-full p-2.5" placeholder="e.g., testfile.txt" required>
+        </div>
+
+        <button id="deleteButton" class="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+            Initiate Deletion
+        </button>
+
+        <div id="status" class="mt-4 p-4 text-center rounded-lg" style="display: none;"></div>
+
+        <a href="/" class="mt-6 inline-block text-sky-400 hover:text-sky-500">Return to Homepage</a>
+    </div>
+
+    <script>
+        const starfield = document.getElementById('starfield');
+        for (let i = 0; i < 200; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            const size = Math.random() * 2 + 1;
+            star.style.width = `${size}px`;
+            star.style.height = `${size}px`;
+            star.style.top = `${Math.random() * 100}%`;
+            star.style.left = `${Math.random() * 100}%`;
+            star.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            star.style.animationDelay = `${Math.random() * 3}s`;
+            starfield.appendChild(star);
+        }
+
+        const deleteButton = document.getElementById('deleteButton');
+        const filenameInput = document.getElementById('filename');
+        const statusDiv = document.getElementById('status');
+
+        function showStatus(message, isError) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'mt-4 p-4 text-center rounded-lg ' + (isError ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300');
+            statusDiv.style.display = 'block';
+        }
+
+        deleteButton.addEventListener('click', () => {
+            const filename = filenameInput.value;
+            if (!filename) {
+                showStatus('Error: Please enter a filename to delete.', true);
+                return;
+            }
+
+            const path =  filename; 
+            
+            showStatus(`Sending DELETE request to ${path}...`, false);
+
+            fetch(path, {
+                method: 'DELETE',
+            })
+            .then(response => {
+                if (response.ok) {
+                    showStatus(`Success! Server responded with status ${response.status}. The file should be deleted.`, false);
+                } else {
+                    showStatus(`Error: Server responded with status ${response.status} (${response.statusText}).`, true);
+                }
+            })
+            .catch(error => {
+                showStatus('Network Error: Could not send request. Is the server running?', true);
+                console.error('Fetch error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
