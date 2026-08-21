@@ -337,7 +337,11 @@ bool Client::_parseCgiHeaders(const std::string &block,
     HttpStatus::Code &status, bool &explicit_status,
     std::map<std::string, std::string> &headers, bool &has_location)
 {
-    
+    size_t start = 0;
+    while (start < block.size())
+    {
+        size_t nl = block.find('\n', start);
+    }
 }
 
 const ServerConfig *Client::_getConfig(const std::string &host)
