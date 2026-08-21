@@ -6,14 +6,17 @@
 #include <Epoll.hpp>
 #include <sys/sendfile.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <iostream>
+#include <cerrno>
+#include <cstring>
 // #include <Response.hpp>
 
 Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
       m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0),
-      _file_offset(0), _cgi(NULL), _cgi_start(0)
+      _file_offset(0), _cgi(NULL), _cgi_start(0), _cgi_body_off(0)
 {
 }
 
@@ -228,18 +231,106 @@ void Client::_cgiTimeout() {
 }
 
 void Client::_buildCgiResponse() {
-    // const std::string &raw = _cgi->getOutput();
+    static const size_t MAX_CGI_HEADERS = 64 * 1024;
 
-    // HttpStatus::Code code = HttpStatus::OK;
-    // std::map<std::string, std::string> headers;
-    // std::string body;
-    // bool in_headers = true;
+    struct stat st;
+    if (_cgi->getOutputFd() == -1 || fstat(_cgi->getOutputFd(), &st) != 0)
+    {
+        LOG_ERROR << "cannot fstat cgi output fd";
+        _buildError(HttpStatus::BadGateway);
+        return ;
+    }
+
+    const off_t file_size = st.st_size;
+    std::string window;
+    char chunk[4096];
+    off_t read_at = 0;
+    size_t body_start = std::string::npos;
+    ssize_t n;
+
+    while ((n = pread(_cgi->getOutputFd(), chunk, sizeof(chunk), read_at) > 0))
+    {
+        window.append(chunk, static_cast<size_t>(n));
+        read_at += n;
+
+        size_t crlf = window.find("\r\n\r\n");
+        size_t lf = window.find("\n\n");
+        if (crlf != std::string::npos && (lf == 
+            std::string::npos || crlf < lf))
+        {
+            body_start = crlf + 4;
+            break;
+        }
+        if (lf != std::string::npos)
+        {
+            body_start = lf + 2;
+            break;
+        }
+        if (window.size() > MAX_CGI_HEADERS)
+        {
+            LOG_WARN << "CGI response exceed ther limit";
+            _buildError(HttpStatus::BadGateway);
+            return;
+        }
+    }
+    if (n == -1)
+    {
+        LOG_ERROR << "pread(cgi_output) -> " << strerror(errno);
+        _buildError(HttpStatus::BadGateway);
+        return;
+    }
+    if (body_start == std::string::npos)
+    {
+        LOG_WARN << "CGI output has no header terminator";
+        _buildError(HttpStatus::BadGateway);
+        return;
+    }
+    HttpStatus::Code status = HttpStatus::OK;
+    bool explicit_status = false;
+    bool has_location = false;
+    std::map<std::string, std::string> headers;
+    window = window.substr(0, body_start);
+    if (!_parseCgiHeaders(window, status, explicit_status,
+        headers, has_location))
+    {
+        LOG_WARN << "CGI output contains malformed headers";
+        _buildError(HttpStatus::BadGateway);
+        return;
+    }
+    if (!explicit_status && has_location)
+        status = HttpStatus::Found;
     
-    // size_t i = 0;
-    // while (i < raw.size())
-    // {
-    //     size_t nl = raw.find('\n', i);
-    // }
+    const off_t body_size = file_size - static_cast<off_t>(body_start);
+    LOG_DEBUG << "CGI -> status " << status << ", body " << body_size << " bytes";
+    
+    _response.setStatusCode(status);
+
+    std::map<std::string, std::string>::const_iterator it;
+    for (it = headers.begin(); it != headers.end(); ++it)
+    {
+        const std::string lname = _lower(it->first);
+        if (lname == "satatus" || lname == "content-length")
+            continue;
+        _response.setHeader(it->first, it->second);
+    }
+    if (body_size == 0)
+        _response.setBody("");
+    else
+    {
+        if (!_response.setFileBody(_cgi->getOutputPath()))
+        {
+            LOG_ERROR << "cannot reopen cgi output file";
+            _buildError(HttpStatus::BadGateway);
+            return ;
+        }
+        std::ostringstream oss;
+        oss << body_size;
+        _response.setHeader("Content-Length", oss.str());
+
+        _cgi_body_off = static_cast<off_t>(body_start);
+        _file_offset = _cgi_body_off;
+    }
+    _response.build();
 }
 
 const ServerConfig *Client::_getConfig(const std::string &host)

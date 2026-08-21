@@ -89,10 +89,6 @@ void Cgi::_setEnv() {
   _cenv.push_back(NULL);
 }
 
-pid_t Cgi::getPid() const {
-  return _pid;
-}
-
 int Cgi::execute() {
   if (pipe(_notify) == -1)
   {
@@ -178,11 +174,10 @@ int Cgi::execute() {
 }
 
 Cgi::e_out Cgi::readOutput() {
-  char chunk[PIPE_BUFFER_SIZE];
-  ssize_t bytes = read(_notify[0], chunk, sizeof(chunk));
+  char junk[64];
+  ssize_t bytes = read(_notify[0], junk, sizeof(junk));
   if (bytes > 0)
   {
-    _buffer.append(chunk, static_cast<size_t>(bytes));
     return MORE;
   }
   if (bytes == 0)
@@ -218,15 +213,27 @@ bool Cgi::exitedCleanly() const {
   );
 }
 
-const std::string &Cgi::getOutput() const {
-  return _buffer;
-}
-
 int Cgi::getReadEnd() const {
   return _notify[0];
+}
+
+int Cgi::getOutputFd() const {
+  return _output_fd;
+}
+
+const std::string& Cgi::getOutputPath() const {
+  return _output_path;
+}
+
+pid_t Cgi::getPid() const {
+  return _pid;
 }
 
 Cgi::~Cgi()
 {
   killChild();
+  if (_notify[0] != -1) (void)close(_notify[0]);
+  if (_notify[1] != -1) (void)close(_notify[1]);
+  if (_output_fd != -1) (void)close(_output_fd);
+  if (_output_path.empty()) (void)unlink(_output_path.c_str());
 }

@@ -45,13 +45,23 @@ class Client : public AFd
 
     Cgi *_cgi;
     time_t _cgi_start;
+    off_t _cgi_body_off;
 
+    bool _parseCgiHeaders(const std::string &block,
+                          HttpStatus::Code &status,
+                          bool &explicit_status,
+                          std::map<std::string, std::string> &headers,
+                          bool &has_location);
+
+    bool _extractStatusLine(const std::string &line, HttpStatus::Code &status);
+    bool _parseStatusNumber(const std::string &s, HttpStatus::Code &status);
+    std::string _lower(const std::string& s) const;
+  
     Epoll::EventState _receiveData();
     Epoll::EventState _sendData();
     Epoll::EventState _handleCgiEvent();
     void              _cgiTimeout();
     void              _buildCgiResponse();
-    void              _buildCgiError(HttpStatus::Code code);
     void              _buildError(HttpStatus::Code errCode);
     const ServerConfig *_getConfig(const std::string &host);
 
