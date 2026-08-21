@@ -5,6 +5,9 @@
 #include <Logger.hpp>
 #include <dirent.h>
 #include <fstream>
+#include <cstdio>
+#include <cerrno>
+#include <cstring>
 
 RequestHandler::RequestHandler(const HttpRequest &request, HttpResponse &response, const ServerConfig &config)
 	: _request(request), _response(response), _config(config), _route(NULL) {
@@ -32,6 +35,14 @@ void	RequestHandler::handle(void) {
 		_response.setHeader("Content-Type", "text/html");
 		_response.build();
 		return;
+	}
+
+	{
+		std::string real_path_tmp = _route ? _resolvePath() : _request.getUri().getPath();
+		if (isCgiRequest(real_path_tmp)) {
+			LOG_DEBUG << "CGI detected: " << real_path_tmp << " mode=" << getCgiMode();
+			return;
+		}
 	}
 
 	if (!_isBodySizeValid()) {
@@ -171,18 +182,17 @@ void	RequestHandler::_handleGet(const std::string &real_path) {
 		return;
 	}
 
-	// TODO: CGI execution comes later; only detection is wired now
 	if (_isCgiExtension(real_path)) {
-		_buildErrorResponse(HttpStatus::NotImplemented); // 501
+		_handleCGI(real_path);
 		return;
 	}
 
-	_response.setStatusCode(HttpStatus::OK); // 200
+	_response.setStatusCode(HttpStatus::OK);
 
 	_response.setHeader("Content-Type", _guessMimeType(real_path));
 
 	if (!_response.setFileBody(real_path)) {
-		_buildErrorResponse(HttpStatus::InternalServerError); // 500
+		_buildErrorResponse(HttpStatus::InternalServerError);
 		return;
 	}
 
@@ -215,13 +225,133 @@ std::string	RequestHandler::_guessMimeType(const std::string &path) const {
 
 bool	RequestHandler::_isCgiExtension(const std::string &real_path) const {
 	size_t	dot_pos = real_path.find_last_of('.');
-
 	if (dot_pos == std::string::npos)
 		return false;
-
 	std::string	ext = real_path.substr(dot_pos);
 
-	return _route->cgi_pass.find(ext) != _route->cgi_pass.end();
+	if (_route != NULL && _route->cgi_pass.find(ext) != _route->cgi_pass.end())
+		return true;
+	if (_config.cgi_pass.find(ext) != _config.cgi_pass.end())
+		return true;
+	for (size_t i = 0; i < _config.locations.size(); ++i) {
+		const LocationConfig &loc = _config.locations[i];
+		if (loc.cgi_pass.find(ext) != loc.cgi_pass.end())
+			return true;
+	}
+	return false;
+}
+
+// --- API CGI précise ---
+
+bool	RequestHandler::isCgiRequest(const std::string &real_path) const {
+	return _isCgiExtension(real_path);
+}
+
+bool	RequestHandler::isCgi() const {
+	std::string real;
+	if (_route != NULL)
+		real = _resolvePath();
+	else
+		real = _request.getUri().getPath();
+	return _isCgiExtension(real);
+}
+
+bool	RequestHandler::isCgiGet() const {
+	return isCgi() && _request.getMethod() == HTTP_GET;
+}
+
+bool	RequestHandler::isCgiPost() const {
+	return isCgi() && _request.getMethod() == HTTP_POST;
+}
+
+bool	RequestHandler::isCgiDelete() const {
+	return isCgi() && _request.getMethod() == HTTP_DELETE;
+}
+
+RequestHandler::CgiMode	RequestHandler::getCgiMode() const {
+	if (!isCgi())
+		return CGI_NONE;
+	switch (_request.getMethod()) {
+		case HTTP_GET: return CGI_GET;
+		case HTTP_POST: return CGI_POST;
+		case HTTP_DELETE: return CGI_DELETE;
+		default: return CGI_NONE;
+	}
+}
+
+int	RequestHandler::getBodyFd() const {
+	return _request.openBodyFile();
+}
+
+std::string	RequestHandler::getBodyFilePath() const {
+	return _request.getTmpFilename();
+}
+
+std::string	RequestHandler::getCgiInterpreter(const std::string &real_path) const {
+	size_t dot_pos = real_path.find_last_of('.');
+	if (dot_pos == std::string::npos)
+		return "";
+	std::string ext = real_path.substr(dot_pos);
+
+	if (_route != NULL) {
+		std::map<std::string, std::string>::const_iterator it = _route->cgi_pass.find(ext);
+		if (it != _route->cgi_pass.end())
+			return it->second;
+	}
+	std::map<std::string, std::string>::const_iterator it2 = _config.cgi_pass.find(ext);
+	if (it2 != _config.cgi_pass.end())
+		return it2->second;
+	for (size_t i = 0; i < _config.locations.size(); ++i) {
+		const LocationConfig &loc = _config.locations[i];
+		std::map<std::string, std::string>::const_iterator it3 = loc.cgi_pass.find(ext);
+		if (it3 != loc.cgi_pass.end())
+			return it3->second;
+	}
+	return "";
+}
+
+std::string	RequestHandler::getCgiScriptPath() const {
+	if (_route == NULL)
+		return "";
+	return _resolvePath();
+}
+
+std::string	RequestHandler::getCgiInterpreter() const {
+	std::string script = getCgiScriptPath();
+	if (script.empty())
+		script = _request.getUri().getPath();
+	return getCgiInterpreter(script);
+}
+
+std::string	RequestHandler::getUploadDestination() const {
+	if (_route == NULL)
+		return "";
+	if (_request.getMethod() != HTTP_POST)
+		return "";
+	const LocationConfig *loc = dynamic_cast<const LocationConfig *>(_route);
+	if (loc == NULL || loc->upload.empty())
+		return "";
+	std::string dir_path = loc->upload;
+	std::string uri_path = _request.getUri().getPath();
+	std::string base_name = uri_path;
+	size_t last_slash = uri_path.find_last_of('/');
+	if (last_slash != std::string::npos)
+		base_name = uri_path.substr(last_slash + 1);
+	if (base_name.empty() || base_name == "." || base_name == "..")
+		base_name = "upload";
+	if (dir_path.length() > 0 && dir_path[dir_path.length() - 1] != '/')
+		dir_path += "/";
+	return dir_path + base_name;
+}
+
+void	RequestHandler::_handleCGI(const std::string &real_path) {
+	LOG_DEBUG << "[CGI STUB] request: " << real_path
+	          << " mode=" << getCgiMode()
+	          << " interpreter=" << getCgiInterpreter(real_path)
+	          << " body_fd=" << getBodyFd()
+	          << " body_path=" << getBodyFilePath()
+	          << " upload_dst=" << getUploadDestination();
+	return;
 }
 
 void    RequestHandler::_handleDirectory(const std::string &real_path) {
@@ -304,7 +434,10 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 }
 
 void    RequestHandler::_handlePost(const std::string &real_path) {
-	(void)real_path;
+	if (_isCgiExtension(real_path)) {
+		_handleCGI(real_path);
+		return;
+	}
 
 	if (_request.getBytesReceived() == 0) {
 		_response.setStatusCode(HttpStatus::NoContent); // 204
@@ -335,21 +468,67 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 
 	std::string	full_path = dir_path + base_name;
 
-	std::ofstream	out(full_path.c_str(), std::ios::binary | std::ios::trunc);
-	if (!out.is_open()) {
-		_buildErrorResponse(HttpStatus::InternalServerError); // 500
+	const std::string &tmp_path = _request.getTmpFilename();
+	if (!tmp_path.empty()) {
+		struct stat st;
+		if (stat(tmp_path.c_str(), &st) != 0) {
+			LOG_DEBUG << "tmp file not found: " << tmp_path << " : " << strerror(errno);
+			_buildErrorResponse(HttpStatus::InternalServerError);
+			return;
+		}
+		LOG_DEBUG << "POST rename tmp " << tmp_path << " -> " << full_path;
+		if (::rename(tmp_path.c_str(), full_path.c_str()) != 0) {
+			if (errno == EXDEV) {
+				std::ifstream src(tmp_path.c_str(), std::ios::binary);
+				std::ofstream dst(full_path.c_str(), std::ios::binary | std::ios::trunc);
+				if (!src.is_open() || !dst.is_open()) {
+					LOG_DEBUG << "cross-device copy failed: src=" << tmp_path << " dst=" << full_path << " : " << strerror(errno);
+					_buildErrorResponse(HttpStatus::InternalServerError);
+					return;
+				}
+				dst << src.rdbuf();
+				if (!dst) {
+					_buildErrorResponse(HttpStatus::InternalServerError);
+					return;
+				}
+				src.close();
+				dst.close();
+				::unlink(tmp_path.c_str());
+			} else {
+				LOG_DEBUG << "rename(" << tmp_path << " -> " << full_path << ") failed: " << strerror(errno);
+				_buildErrorResponse(HttpStatus::InternalServerError);
+				return;
+			}
+		}
+		_response.setStatusCode(HttpStatus::Created);
+		_response.setBody("Upload OK");
+		_response.build();
 		return;
 	}
 
-	out.write(_request.getBody().c_str(), static_cast<std::streamsize>(_request.getBody().size()));
-	out.close();
+	const std::string &body = _request.getBody();
+	if (!body.empty()) {
+		std::ofstream	out(full_path.c_str(), std::ios::binary | std::ios::trunc);
+		if (!out.is_open()) {
+			_buildErrorResponse(HttpStatus::InternalServerError);
+			return;
+		}
+		out.write(body.c_str(), static_cast<std::streamsize>(body.size()));
+		out.close();
+		_response.setStatusCode(HttpStatus::Created);
+		_response.setBody("Upload OK");
+		_response.build();
+		return;
+	}
 
-	_response.setStatusCode(HttpStatus::Created); // 201
-	_response.setBody("Upload OK");
-	_response.build();
+	_buildErrorResponse(HttpStatus::InternalServerError);
 }
 
 void    RequestHandler::_handleDelete(const std::string &real_path) {
+	if (_isCgiExtension(real_path)) {
+		_handleCGI(real_path);
+		return;
+	}
 	struct stat	file_stat;
 
 	if (stat(real_path.c_str(), &file_stat) != 0) {

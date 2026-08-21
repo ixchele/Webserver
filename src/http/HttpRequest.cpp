@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <iostream>
 #include <cctype>
+#include <cstdio>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 // hard safety ceiling against OOM for unbounded (chunked) bodies
 #define MAX_REQUEST_BODY   (64 * 1024 * 1024)
@@ -18,6 +21,14 @@ HttpRequest::HttpRequest(int client_fd)
       _chunk_state(CHUNK_SIZE_LINE), _chunk_size(0)
 {
 	(void)_client_fd;
+}
+
+HttpRequest::~HttpRequest() {
+	if (_body_file.is_open())
+		_body_file.close();
+	if (!_temp_filename.empty()) {
+		::unlink(_temp_filename.c_str());
+	}
 }
 
 HttpRequest::ParseState	HttpRequest::getState() const { return _state; }
@@ -210,8 +221,10 @@ void	HttpRequest::parse(const char *data, size_t len) {
 				}
 			}
 
-			if (_state == ERROR)
+			if (_state == ERROR) {
+				_closeBodyFile();
 				break;
+			}
 		}
 
 		else if (_state == BODY) {
@@ -220,11 +233,46 @@ void	HttpRequest::parse(const char *data, size_t len) {
 
 			_processBody();
 
-			if (_body_mode == BODY_CONTENT_LENGTH && _bytes_received == _content_length)
+			if (_state == ERROR) {
+				_closeBodyFile();
+				break;
+			}
+
+			if (_body_mode == BODY_CONTENT_LENGTH && _bytes_received == _content_length) {
 				_state = COMPLETE;
+				_closeBodyFile();
+			}
 			else if (_body_mode == BODY_NONE)
 				break;
+
+			if (_state == COMPLETE)
+				_closeBodyFile();
 		}
+	}
+}
+
+bool	HttpRequest::_createTempFile(void) {
+	if (!_temp_filename.empty())
+		return true;
+	char tmpl[] = "/tmp/webserv_body_XXXXXX";
+	int fd = ::mkstemp(tmpl);
+	if (fd == -1)
+		return false;
+	::close(fd);
+	_temp_filename = tmpl;
+	_body_file.open(_temp_filename.c_str(), std::ios::binary | std::ios::out | std::ios::trunc);
+	if (!_body_file.is_open()) {
+		::unlink(tmpl);
+		_temp_filename.clear();
+		return false;
+	}
+	return true;
+}
+
+void	HttpRequest::_closeBodyFile(void) {
+	if (_body_file.is_open()) {
+		_body_file.flush();
+		_body_file.close();
 	}
 }
 
@@ -235,13 +283,31 @@ void	HttpRequest::_prepareBody(void) {
 			_body_mode = BODY_CHUNKED;
 			_chunk_state = CHUNK_SIZE_LINE;
 			_state = BODY;
+			if (!_createTempFile()) {
+				_state = ERROR;
+				_code = HttpStatus::InternalServerError;
+			}
 			return;
 		}
 	}
 
 	if (_headers.find("content-length") != _headers.end()) {
+		if (_content_length == 0) {
+			_body_mode = BODY_NONE;
+			_state = COMPLETE;
+			return;
+		}
+		if (_content_length > MAX_REQUEST_BODY) {
+			_state = ERROR;
+			_code = HttpStatus::PayloadTooLarge;
+			return;
+		}
 		_body_mode = BODY_CONTENT_LENGTH;
 		_state = BODY;
+		if (!_createTempFile()) {
+			_state = ERROR;
+			_code = HttpStatus::InternalServerError;
+		}
 		return;
 	}
 
@@ -257,7 +323,19 @@ void	HttpRequest::_processBody(void) {
 		size_t take = _buffer.size() < remaining ? _buffer.size() : remaining;
 
 		if (take > 0) {
-			_body.append(_buffer, 0, take);
+			if (!_body_file.is_open()) {
+				if (!_createTempFile()) {
+					_state = ERROR;
+					_code = HttpStatus::InternalServerError;
+					return;
+				}
+			}
+			_body_file.write(_buffer.data(), static_cast<std::streamsize>(take));
+			if (!_body_file) {
+				_state = ERROR;
+				_code = HttpStatus::InternalServerError;
+				return;
+			}
 			_bytes_received += take;
 			_buffer.erase(0, take);
 		}
@@ -285,6 +363,11 @@ void	HttpRequest::_processChunked(void) {
 			if (_chunk_size == 0) {
 				_chunk_state = CHUNK_TRAILERS;
 			} else {
+				if (_bytes_received + _chunk_size > MAX_REQUEST_BODY) {
+					_state = ERROR;
+					_code = HttpStatus::PayloadTooLarge;
+					return;
+				}
 				_chunk_state = CHUNK_DATA;
 			}
 		}
@@ -298,7 +381,19 @@ void	HttpRequest::_processChunked(void) {
 					_code = HttpStatus::PayloadTooLarge;
 					return;
 				}
-				_body.append(_buffer, 0, take);
+				if (!_body_file.is_open()) {
+					if (!_createTempFile()) {
+						_state = ERROR;
+						_code = HttpStatus::InternalServerError;
+						return;
+					}
+				}
+				_body_file.write(_buffer.data(), static_cast<std::streamsize>(take));
+				if (!_body_file) {
+					_state = ERROR;
+					_code = HttpStatus::InternalServerError;
+					return;
+				}
 				_buffer.erase(0, take);
 				_bytes_received += take;
 				_chunk_size -= take;
@@ -327,10 +422,19 @@ void	HttpRequest::_processChunked(void) {
 				break;
 			// trailer section ends on an empty line; discard trailers
 			size_t pos = _buffer.find("\r\n\r\n");
-			if (pos == std::string::npos)
+			if (pos == std::string::npos) {
+				// also handle case of single empty line "\r\n"
+				if (_buffer == "\r\n") {
+					_buffer.erase(0, 2);
+					_state = COMPLETE;
+					_closeBodyFile();
+					return;
+				}
 				break;
+			}
 			_buffer.erase(0, pos + 4);
 			_state = COMPLETE;
+			_closeBodyFile();
 			return;
 		}
 	}
@@ -362,6 +466,22 @@ bool	HttpRequest::_parseChunkSize(const std::string &line) {
 
 bool HttpRequest::isBufferEmpty() { return _buffer.empty(); }
 
+int HttpRequest::openBodyFile() const {
+	if (_temp_filename.empty())
+		return -1;
+	int fd = ::open(_temp_filename.c_str(), O_RDONLY);
+	return fd;
+}
+
+bool HttpRequest::hasBodyFile() const {
+	if (_temp_filename.empty())
+		return false;
+	struct stat st;
+	if (::stat(_temp_filename.c_str(), &st) != 0)
+		return false;
+	return true;
+}
+
 void	HttpRequest::setState(ParseState state) {
 	_state = state;
 }
@@ -371,6 +491,11 @@ void	HttpRequest::setErrorCode(HttpStatus::Code code) {
 }
 
 void HttpRequest::reset() {
+	_closeBodyFile();
+	if (!_temp_filename.empty()) {
+		::unlink(_temp_filename.c_str());
+		_temp_filename.clear();
+	}
 	_state = REQUEST_LINE;
 	_code = HttpStatus::OK;
 	_content_length = 0;
@@ -378,8 +503,6 @@ void HttpRequest::reset() {
 	_uri.reset();
 	_version.clear();
 	_headers.clear();
-	_temp_filename.clear();
-	_body_file.close();
 	_content_length = 0;
 	_bytes_received = 0;
 	_buffer.clear();

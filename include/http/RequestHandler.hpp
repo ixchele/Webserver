@@ -14,6 +14,21 @@ class RequestHandler {
 
 		void	handle(void);
 
+		enum CgiMode { CGI_NONE = 0, CGI_GET, CGI_POST, CGI_DELETE };
+		bool	isCgi() const;
+		bool	isCgiGet() const;
+		bool	isCgiPost() const;
+		bool	isCgiDelete() const;
+		CgiMode	getCgiMode() const;
+		bool	isCgiRequest(const std::string &real_path) const;
+
+		int		getBodyFd() const;
+		std::string	getBodyFilePath() const;
+		std::string	getCgiInterpreter(const std::string &real_path) const;
+		std::string	getCgiInterpreter() const;
+		std::string	getCgiScriptPath() const;
+		std::string	getUploadDestination() const;
+
 	private:
 		const HttpRequest	&_request;
 		HttpResponse		&_response;

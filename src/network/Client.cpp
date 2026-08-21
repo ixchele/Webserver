@@ -43,10 +43,24 @@ Epoll::EventState Client::_receiveData()
         // }
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
-        // if (rqst_handler.isCgi())
-        // {
-
-        // }
+        if (rqst_handler.isCgi()) {
+            int body_fd = rqst_handler.getBodyFd();
+            std::string body_path = rqst_handler.getBodyFilePath();
+            std::string upload_dst = rqst_handler.getUploadDestination();
+            std::string script = rqst_handler.getCgiScriptPath();
+            std::string interp = rqst_handler.getCgiInterpreter();
+            RequestHandler::CgiMode mode = rqst_handler.getCgiMode();
+            LOG_DEBUG << "CGI hook: mode=" << mode << " script=" << script << " interp=" << interp
+                      << " body_fd=" << body_fd << " body_path=" << body_path << " upload_dst=" << upload_dst;
+            if (body_fd != -1)
+                ::close(body_fd);
+            if (_response.getHeaderBuffer().empty()) {
+                _response.setStatusCode(HttpStatus::NotImplemented);
+                _response.setHeader("Content-Type", "text/plain");
+                _response.setBody("CGI hook ready - to be implemented by friend");
+                _response.build();
+            }
+        }
         m_state = CSENDING_HEADERS;
         if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
             return Epoll::EERROR;
