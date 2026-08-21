@@ -33,6 +33,8 @@ void	RequestHandler::handle(void) {
 		_response.setStatusCode(code);
 		_response.setHeader("Location", _route->return_val);
 		_response.setHeader("Content-Type", "text/html");
+		_response.setHeader("Content-Lenght", "0");
+		_response.setHeader("Connection", "close");
 		_response.build();
 		return;
 	}
