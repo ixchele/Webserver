@@ -341,6 +341,23 @@ bool Client::_parseCgiHeaders(const std::string &block,
     while (start < block.size())
     {
         size_t nl = block.find('\n', start);
+        if (nl == std::string::npos)
+            nl = block.size();
+        std::string line = block.substr(start, nl - start);
+        start = nl + 1;
+
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);
+
+        if (line.empty())
+            break;
+        if (line.find('\r') != std::string::npos)
+            return false;
+
+        if (line.compare(0, 5, "HTTP/") == 0)
+        {
+            if ()
+        } 
     }
 }
 
