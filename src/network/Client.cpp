@@ -24,12 +24,19 @@ Epoll::EventState Client::_receiveData()
     char buffer[APP_BUFFER_SIZE + 1];
 
     ssize_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
-    if (bytes == -1 || bytes == 0)
+    if (bytes == -1)
     {
-        LOG_WARN << "recv() returned " << bytes << " on client " << _id;
+        LOG_WARN << "recv() failed on client " << _id;
+        return Epoll::EERROR;
+    }
+    else
+    if (bytes == 0)
+    {
+        LOG_INFO << "recv() -> Client " << _id << " Closed his connection";
         return Epoll::EERROR;
     }
     buffer[bytes] = '\0';
+    LOG_DEBUG << buffer;
 
     _request.parse(buffer, static_cast<size_t>(bytes));
     if (_request.getState() == HttpRequest::COMPLETE)
@@ -101,7 +108,7 @@ Epoll::EventState Client::_sendData()
             }
             else if (headers_bytes_sent == 0)
             {
-                LOG_INFO << "Client " << _id << " Closed his connection";
+                LOG_INFO << "send() -> Client " << _id << " Closed his connection";
                 return Epoll::EERROR;
             }
             _bytes_sent += headers_bytes_sent;
@@ -130,12 +137,12 @@ Epoll::EventState Client::_sendData()
             m_state = CFINISHED;
         else if (body_bytes_sent == -1)
         {
-            LOG_WARN << "sendfile() failed with -1 on client " << _id;
+            LOG_WARN << "sendfile() -> failed with -1 on client " << _id;
             return Epoll::EERROR;
         }
         else if (body_bytes_sent == 0)
         {
-            LOG_INFO << "Client " << _id << " Closed his connection";
+            LOG_INFO << "sendfile() Client " << _id << " Closed his connection";
             return Epoll::EERROR;
         }
         if (_file_offset == _response.getFileSize())
