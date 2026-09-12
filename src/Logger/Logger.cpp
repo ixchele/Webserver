@@ -8,9 +8,8 @@ Logger	&Logger::getInstance() {
 Logger::Logger() : _minLevel(DEBUG), _logToConsole(true) {}
 
 Logger::~Logger() {
-	if (_fileOutput.is_open()) {
+	if (_fileOutput.is_open())
 		_fileOutput.close();
-	}
 }
 
 void	Logger::setMinLevel(Level level) {
@@ -18,9 +17,8 @@ void	Logger::setMinLevel(Level level) {
 }
 
 void	Logger::setLogFile(const std::string& filename) {
-	if (_fileOutput.is_open()) {
+	if (_fileOutput.is_open())
 		_fileOutput.close();
-	}
 
 	_fileOutput.open(filename.c_str(), std::ios::app);
 }
@@ -46,15 +44,13 @@ std::string Logger::getTimeStr() {
 }
 
 void	Logger::write(Level level, const std::string &msg) {
-	if (level < _minLevel) {
+	if (level < _minLevel)
 		return;
-	}
 
 	std::string	timeStr = getTimeStr();
 
-	if (_logToConsole) {
+	if (_logToConsole)
 		std::cerr << "[" << timeStr << "] [" << getLevelStr(level) << "] " << msg << std::endl;
-	}
 
 	if (_fileOutput.is_open()) {
 		std::string rawLevel;

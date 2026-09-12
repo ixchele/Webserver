@@ -40,7 +40,7 @@ ConfigParser::ConfigParser(const TokenList &tokenList)
 }
 
 ConfigParser::~ConfigParser(void) {
-	//
+	// pass
 }
 
 // NOTE : Helpers
@@ -140,7 +140,6 @@ void	ConfigParser::autoindexDir() {
 	consume(";");
 }
 
-// BUG : should save statusCode !!
 void	ConfigParser::returnDir() {
 	consume("return");
 

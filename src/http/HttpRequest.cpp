@@ -14,7 +14,6 @@
 #include <sys/stat.h>
 #include <Logger.hpp>
 
-// hard safety ceiling against OOM for unbounded (chunked) bodies
 // #define MAX_REQUEST_BODY   (64 * 1024 * 1024)
 #define MAX_REQUEST_BODY   (200000000)
 
@@ -69,6 +68,8 @@ std::string HttpRequest::getHeader(const std::string &name) const {
 		return _headers.at(name);
 	return "";
 }
+
+std::string	HttpRequest::getPathName() const {return path_name;}
 
 void	HttpRequest::_parseRequestLine(const std::string &line) {
 	std::istringstream	iss(line);
@@ -537,6 +538,10 @@ void	HttpRequest::setState(ParseState state) {
 
 void	HttpRequest::setErrorCode(HttpStatus::Code code) {
 	_code = code;
+}
+
+void	HttpRequest::setPathName(std::string path) {
+	path_name = path;
 }
 
 void HttpRequest::reset() {

@@ -104,7 +104,7 @@ void	RequestHandler::handle(void) {
 		if(_route)
 			real_path_tmp =  _resolveFullPath();
 		else
-			real_path_tmp	=  _request.path_name;
+			real_path_tmp	=  _request.getPathName();
 		if (isCgiRequest(real_path_tmp)) 
 			return;
 	}
@@ -185,7 +185,7 @@ std::string	RequestHandler::_resolvePath(void) const {
 
 std::string	RequestHandler::_resolveFullPath(void) const {
 	std::string	path = _route->root;
-	std::string	uri_path = _request.path_name;
+	std::string	uri_path = _request.getPathName();
 
 	if (path.length() > 0 && path[path.length() - 1] == '/' && uri_path.length() > 0 && uri_path[0] == '/')
 		uri_path = uri_path.substr(1);
@@ -195,6 +195,7 @@ std::string	RequestHandler::_resolveFullPath(void) const {
 
 	char	buff[PATH_MAX];
 
+	LOG << path + uri_path;
 	if (realpath((path + uri_path).c_str(), buff) != NULL) {
 		return std::string(buff);
 	}
@@ -351,7 +352,7 @@ bool	RequestHandler::isCgi() const {
 	if (_route != NULL)
 		real = _resolveFullPath();
 	else
-		real = _request.path_name;
+		real = _request.getPathName();
 	return _isCgiExtension(real);
 }
 
@@ -418,7 +419,7 @@ std::string	RequestHandler::getCgiScriptPath() const {
 std::string	RequestHandler::getCgiInterpreter() const {
 	std::string script = getCgiScriptPath();
 	if (script.empty())
-		script = _request.path_name;
+		script = _request.getPathName();
 	return getCgiInterpreter(script);
 }
 
@@ -431,7 +432,7 @@ std::string	RequestHandler::getUploadDestination() const {
 	if (loc == NULL || loc->upload.empty())
 		return "";
 	std::string dir_path = loc->upload;
-	std::string uri_path = _request.path_name;
+	std::string uri_path = _request.getPathName();
 	std::string base_name = uri_path;
 	size_t last_slash = uri_path.find_last_of('/');
 	if (last_slash != std::string::npos)
@@ -493,7 +494,6 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 		_buildErrorResponse(HttpStatus::Forbidden); // 403
 		return;
 	}
-	// TODO: hadi rode meneha lbale
 	std::string	uri_path = _request.getUri().getPath();
 	std::string	html = "<html>\r\n<head><title>Index of " + uri_path + "</title></head>\r\n"
 		"<body>\r\n<h1>Index of " + uri_path + "</h1>\r\n<hr><pre>\n";
@@ -558,9 +558,9 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 	std::string	base_name;
 
 	{
-		size_t last_slash = _request._uri.getPath().find_last_of('/');
+		size_t last_slash = _request.getUri().getPath().find_last_of('/');
 		if (last_slash != std::string::npos)
-			base_name = _request._uri.getPath().substr(last_slash + 1);
+			base_name = _request.getUri().getPath().substr(last_slash + 1);
 		// size_t last_slash = _request.path_name.find_last_of('/');
 		// if (last_slash != std::string::npos)
 		// 	base_name = _request.path_name.substr(last_slash + 1);
