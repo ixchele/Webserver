@@ -1,3 +1,4 @@
+#include "HttpMethod.hpp"
 #include "HttpStatus.hpp"
 #include "Uri.hpp"
 #include <HttpRequest.hpp>
@@ -11,14 +12,16 @@
 #include <cstdio>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <Logger.hpp>
 
 // hard safety ceiling against OOM for unbounded (chunked) bodies
-#define MAX_REQUEST_BODY   (64 * 1024 * 1024)
+// #define MAX_REQUEST_BODY   (64 * 1024 * 1024)
+#define MAX_REQUEST_BODY   (200000000)
 
 HttpRequest::HttpRequest(int client_fd) 
     : _client_fd(client_fd), _state(REQUEST_LINE), _code(HttpStatus::OK), _method(HTTP_UNKNOWN),
       _content_length(0), _bytes_received(0), _body_mode(BODY_NONE),
-      _chunk_state(CHUNK_SIZE_LINE), _chunk_size(0)
+      _chunk_state(CHUNK_SIZE_LINE), _chunk_size(0), headers_size(0)
 {
 	(void)_client_fd;
 }
@@ -72,38 +75,46 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	std::string			method_str, uri, version, extra;
 
 	if (!std::getline(iss, method_str, ' ')
-			|| !std::getline(iss, uri, ' ')
-			|| !std::getline(iss, version, ' ')
-			|| std::getline(iss, extra, ' '))
+	|| !std::getline(iss, uri, ' ')
+	|| !std::getline(iss, version, ' ')
+	|| std::getline(iss, extra, ' '))
 	{
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : error 400
 		return;
 	}
-
-	if (method_str.empty() || uri.empty() || version.empty()) {
+	
+	if (method_str.empty() || uri.empty()) {
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : error 400
 		return;
 	}
-
 	if (method_str == "GET") _method = HTTP_GET;
 	else if (method_str == "POST") _method = HTTP_POST;
 	else if (method_str == "DELETE") _method = HTTP_DELETE;
-
+	else if (method_str == "HEAD") _method = HTTP_HEAD;
+	
 	else {
+		// LOG << "method_str: " << method_str << " hellooooooo";
 		_state = ERROR;
 		_code = HttpStatus::NotImplemented; // NOTE : 501
 		return;
 	}
-
+	
+	if(uri.length() > MAX_URI_LENGTH)
+	{
+		_state = ERROR;
+		_code = HttpStatus::URITooLong; 
+		return;
+	}
+	
 	if (!_uri.parse(uri)) {
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : 400
 		return;
 	}
 
-	if (version != "HTTP/1.1") {
+	if (version != "HTTP/1.1" && version != "HTTP/1.0") {
 		_state = ERROR;
 		_code = HttpStatus::HTTPVersionNotSupported; // NOTE : 505
 		return;
@@ -121,6 +132,7 @@ void HttpRequest::_parseHeaders(const std::string &line) {
         return;
     }
 
+	// TODO: trim value
     std::string	key = line.substr(0, colon_pos);
     std::string	value = line.substr(colon_pos + 1);
 
@@ -168,7 +180,14 @@ void HttpRequest::_parseHeaders(const std::string &line) {
         }
     }
 
-    _headers[key] = value;
+	// TODO: check if this rule applies for all headers or not
+	if(_headers.find(key) != _headers.end())
+	{
+		_state = ERROR;
+		_code = HttpStatus::BadRequest; //NOTE : 400 RFC 7230 §3.3.3
+		return;
+	}
+	_headers[key] = value;
 }
 
 bool	HttpRequest::_parseContentLength(const std::string &value) {
@@ -195,9 +214,8 @@ void	HttpRequest::parse(const std::string &raw_data) {
 
 void	HttpRequest::parse(const char *data, size_t len) {
 	_buffer.append(data, len);
-
 	while (_state != COMPLETE && _state != ERROR) {
-
+		
 		if (_state == REQUEST_LINE || _state == HEADERS) {
 			size_t pos = _buffer.find("\r\n");
 
@@ -205,6 +223,7 @@ void	HttpRequest::parse(const char *data, size_t len) {
 				break;
 
 			std::string line = _buffer.substr(0, pos);
+			headers_size += line.size();
 
 			if (_state == REQUEST_LINE) {
 				_parseRequestLine(line);
@@ -212,9 +231,17 @@ void	HttpRequest::parse(const char *data, size_t len) {
 			}
 
 			else if (_state == HEADERS) {
-				if (line.empty()) {
-					_buffer.erase(0, pos + 2);
-					_prepareBody();
+				if (line.empty()) { // final line fo header
+					if(headers_size > MAX_HEADER_SIZE)
+					{
+						_state = ERROR;
+						_code = HttpStatus::BadRequest;
+					}
+					else
+					{
+						_buffer.erase(0, pos + 2);
+						_prepareBody();
+					}
 				} else {
 					_parseHeaders(line);
 					_buffer.erase(0, pos + 2);
@@ -231,6 +258,7 @@ void	HttpRequest::parse(const char *data, size_t len) {
 			if (_body_mode == BODY_CONTENT_LENGTH && _content_length - _bytes_received > 0 && _buffer.empty())
 				break; // wait for more data
 
+			size_t before = _buffer.size();
 			_processBody();
 
 			if (_state == ERROR) {
@@ -238,15 +266,16 @@ void	HttpRequest::parse(const char *data, size_t len) {
 				break;
 			}
 
-			if (_body_mode == BODY_CONTENT_LENGTH && _bytes_received == _content_length) {
+			if (_body_mode == BODY_CONTENT_LENGTH && _bytes_received == _content_length)
 				_state = COMPLETE;
-				_closeBodyFile();
-			}
-			else if (_body_mode == BODY_NONE)
-				break;
 
-			if (_state == COMPLETE)
+			if (_state == COMPLETE) {
 				_closeBodyFile();
+				break;
+			}
+
+			if (_buffer.size() == before)
+				break;
 		}
 	}
 }
@@ -260,7 +289,7 @@ bool	HttpRequest::_createTempFile(void) {
 		return false;
 	::close(fd);
 	_temp_filename = tmpl;
-	_body_file.open(_temp_filename.c_str(), std::ios::binary | std::ios::out | std::ios::trunc);
+	_body_file.open(_temp_filename.c_str(), std::ios::binary | std::ios::in | std::ios::out | std::ios::trunc);
 	if (!_body_file.is_open()) {
 		::unlink(tmpl);
 		_temp_filename.clear();
@@ -310,7 +339,6 @@ void	HttpRequest::_prepareBody(void) {
 		}
 		return;
 	}
-
 	_state = COMPLETE;
 }
 
@@ -353,6 +381,7 @@ void	HttpRequest::_processChunked(void) {
 			std::string line = _buffer.substr(0, pos);
 
 			if (!_parseChunkSize(line)) {
+				
 				_state = ERROR;
 				_code = HttpStatus::BadRequest;
 				return;
@@ -366,6 +395,7 @@ void	HttpRequest::_processChunked(void) {
 				if (_bytes_received + _chunk_size > MAX_REQUEST_BODY) {
 					_state = ERROR;
 					_code = HttpStatus::PayloadTooLarge;
+					LOG << "here";
 					return;
 				}
 				_chunk_state = CHUNK_DATA;
@@ -379,6 +409,7 @@ void	HttpRequest::_processChunked(void) {
 				if (_bytes_received + take > MAX_REQUEST_BODY) {
 					_state = ERROR;
 					_code = HttpStatus::PayloadTooLarge;
+					LOG << "here";
 					return;
 				}
 				if (!_body_file.is_open()) {
@@ -400,9 +431,9 @@ void	HttpRequest::_processChunked(void) {
 			}
 
 			if (_chunk_size == 0)
-				_chunk_state = CHUNK_CRLF; // wait for the terminating CRLF
+				_chunk_state = CHUNK_CRLF;
 			else
-				break; // need more data for this chunk
+				break;
 		}
 
 		else if (_chunk_state == CHUNK_CRLF) {
@@ -420,10 +451,8 @@ void	HttpRequest::_processChunked(void) {
 		else if (_chunk_state == CHUNK_TRAILERS) {
 			if (_buffer.size() < 2)
 				break;
-			// trailer section ends on an empty line; discard trailers
 			size_t pos = _buffer.find("\r\n\r\n");
 			if (pos == std::string::npos) {
-				// also handle case of single empty line "\r\n"
 				if (_buffer == "\r\n") {
 					_buffer.erase(0, 2);
 					_state = COMPLETE;
@@ -440,11 +469,26 @@ void	HttpRequest::_processChunked(void) {
 	}
 }
 
+// Chunk format reminder (RFC 7230 §4.1):
+//   <hex-size>\r\n
+//   <that many bytes of data>\r\n
+//   <hex-size>\r\n
+//   ...
+//   0\r\n
+//   \r\n            (end of chunks, optionally preceded by trailers)
+
 bool	HttpRequest::_parseChunkSize(const std::string &line) {
-	size_t	pos = line.find(';');
+	// `line` is already the isolated chunk-size line - the caller
+	// (_processChunked) strips the trailing CRLF before passing it in -
+	// but keep this defensive in case that ever changes.
+	size_t	pos = line.find("\r\n");
 	std::string hexpart = pos == std::string::npos ? line : line.substr(0, pos);
-	if (hexpart.empty())
+	// LOG << "hexpart " << hexpart;
+
+	if (hexpart.empty()) {
+		// LOG << "empty chunk-size line -> reject with 400";
 		return false;
+	}
 
 	size_t	num = 0;
 	for (size_t i = 0; i < hexpart.length(); ++i) {
@@ -453,10 +497,15 @@ bool	HttpRequest::_parseChunkSize(const std::string &line) {
 		if (c >= '0' && c <= '9') d = c - '0';
 		else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
 		else if (c >= 'A' && c <= 'F') d = c - 'A' + 10;
-		else return false;
-
-		if (num > (static_cast<size_t>(-1) - d) / 16)
+		else {
+			// LOG << "invalid hex digit in chunk size -> reject with 400";
 			return false;
+		}
+
+		if (num > (static_cast<size_t>(-1) - d) / 16) {
+			// LOG << "chunk size overflow -> reject with 400";
+			return false;
+		}
 		num = num * 16 + d;
 	}
 

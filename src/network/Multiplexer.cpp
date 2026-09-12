@@ -1,4 +1,5 @@
 #include <Multiplexer.hpp>
+#include <exception>
 #include <timeout.hpp>
 #include <Logger.hpp>
 #include <Epoll.hpp>
@@ -71,25 +72,37 @@ void Multiplexer::events_loop()
 
         for (int i = 0; i < readyFds; i++)
         {
-            fdObj = static_cast<AFd *>(events[i].data.ptr);
-            if (fdObj->handle_event(events[i].events) != Epoll::ECONTINUE)
-            {
-                if (fdObj->get_type() == AFd::CLIENT)
-                {
-                    Client *client = static_cast<Client *>(fdObj);
-                    _clientsList.erase(client->m_it);
-                }
-                _epoll.del_fd(fdObj->get_fd());
-                delete fdObj;
-            }
-            else if (fdObj->get_type() == AFd::CLIENT)
-            {
-                Client *client = static_cast<Client *>(fdObj);
-                client->m_lastActivity = time(NULL);
-                _clientsList.erase(client->m_it);
-                _clientsList.push_back(client);
-                client->m_it = --_clientsList.end();
-            }
+			fdObj = static_cast<AFd *>(events[i].data.ptr);
+            try {
+				if (fdObj->handle_event(events[i].events) != Epoll::ECONTINUE)
+				{
+					if (fdObj->get_type() == AFd::CLIENT)
+					{
+						Client *client = static_cast<Client *>(fdObj);
+						_clientsList.erase(client->m_it);
+					}
+					_epoll.del_fd(fdObj->get_fd());
+					delete fdObj;
+				}
+				else if (fdObj->get_type() == AFd::CLIENT)
+				{
+					Client *client = static_cast<Client *>(fdObj);
+					client->m_lastActivity = time(NULL);
+					_clientsList.erase(client->m_it);
+					_clientsList.push_back(client);
+					client->m_it = --_clientsList.end();
+				}
+			}
+			catch(std::exception &e) {
+				LOG_WARN << e.what();
+				if (fdObj->get_type() == AFd::CLIENT)
+				{
+					Client *client = static_cast<Client *>(fdObj);
+					_clientsList.erase(client->m_it);
+				}
+				_epoll.del_fd(fdObj->get_fd());
+				delete fdObj;
+			}
         }
         _handle_timeout();
     }

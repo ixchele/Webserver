@@ -7,10 +7,11 @@
 #include <map>
 #include <fstream>
 
+#define MAX_HEADER_SIZE 8192
+
 class HttpRequest {
 	public:
 		typedef HttpMethod Method;
-
 		enum ParseState {
 			REQUEST_LINE,
 			HEADERS,
@@ -19,6 +20,7 @@ class HttpRequest {
 			COMPLETE,
 			ERROR
 		};
+
 
 		HttpRequest(int client_fd);
 		~HttpRequest();
@@ -31,7 +33,7 @@ class HttpRequest {
 		ParseState			getState() const;
 		HttpStatus::Code	getErrorCode() const;
 		Method				getMethod() const;
-		std::string		getMethodStr() const;
+		std::string			getMethodStr() const;
 		const Uri			&getUri() const;
 		const std::string	&getVersion() const;
 		const std::string	&getTmpFilename() const;
@@ -50,6 +52,11 @@ class HttpRequest {
 		void	setErrorCode(HttpStatus::Code code);
 
 		void reset();
+		// TODO: move it to private
+		Uri			_uri;
+		std::string path_name;
+		size_t headers_size;
+
 
 	private:
 		enum BodyMode {
@@ -70,12 +77,11 @@ class HttpRequest {
 		HttpStatus::Code	_code;
 
 		Method		_method;
-		Uri			_uri;
 		std::string	_version;
 		std::map<std::string, std::string>	_headers;
 
 		std::string		_temp_filename;
-		std::ofstream	_body_file;
+		std::fstream	_body_file;
 		size_t			_content_length;
 		size_t			_bytes_received;
 

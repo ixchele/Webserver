@@ -1,6 +1,9 @@
 #include "RequestHandler.hpp"
+#include "HttpMethod.hpp"
+#include "HttpStatus.hpp"
 #include <cstdlib>
 #include <linux/limits.h>
+#include <string>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sstream>
@@ -11,7 +14,28 @@
 #include <cerrno>
 #include <cstring>
 
-RequestHandler::RequestHandler(const HttpRequest &request, HttpResponse &response, const ServerConfig &config)
+
+
+#include <cstdlib> // For srand() and rand()
+#include <ctime>   // For time()
+// TODO: to be seen
+std::string generate_random(size_t length) {
+    const std::string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    
+    std::string random_string;
+    random_string.reserve(length); // Prevents constant memory reallocations
+    
+    for (size_t i = 0; i < length; ++i) {
+        // rand() % characters.size() gets an index between 0 and 61
+        size_t random_index = rand() % characters.size();
+        random_string += characters[random_index];
+    }
+    
+    return random_string;
+}
+
+
+RequestHandler::RequestHandler(HttpRequest &request, HttpResponse &response, const ServerConfig &config)
 	: _request(request), _response(response), _config(config), _route(NULL) {
 		// pass
 	}
@@ -20,13 +44,31 @@ RequestHandler::~RequestHandler(void) {
 	// pass
 }
 
+std::string enum_to_string(int methods)
+{
+	std::string res;
+	if(methods & HTTP_GET)
+		res += "GET ";
+	if(methods & HTTP_POST)
+		res += "POST ";
+	if(methods & HTTP_DELETE)
+		res += "DELETE ";
+	return res;
+}
+
 void	RequestHandler::handle(void) {
+	
+	if(_request.getState() != HttpRequest::ERROR && _request.getHeader("host") == "") {
+		_request.setState(HttpRequest::ERROR);
+		_request.setErrorCode(HttpStatus::BadRequest);
+	}
+	
 	if (_request.getState() == HttpRequest::ERROR) {
 		_buildErrorResponse(_request.getErrorCode());
 		return;
 	}
-
-	_route = _config.matchRoute(_request.getUri().getPath());
+	_route = _config.matchRoute(_request);
+	LOG_DEBUG << "root location: " << _route->root;
 
 	if (!_route->return_val.empty()) {
 		HttpStatus::Code	code = _route->return_status != 0
@@ -35,30 +77,41 @@ void	RequestHandler::handle(void) {
 		_response.setStatusCode(code);
 		_response.setHeader("Location", _route->return_val);
 		_response.setHeader("Content-Type", "text/html");
-		_response.setHeader("Content-Lenght", "0");
+		_response.setHeader("Content-Length", "0");
 		_response.setHeader("Connection", "close");
 		_response.build();
 		return;
 	}
-
-	{
-		std::string real_path_tmp = _route ? _resolvePath() : _request.getUri().getPath();
-		if (isCgiRequest(real_path_tmp)) {
-			return;
-		}
+	
+	if (!_isMethodAllowed()) {
+		std::string allow;
+		if (_route->methods & 1) allow += "GET, ";
+		if (_route->methods & 2) allow += "POST, ";
+		if (_route->methods & 4) allow += "DELETE, ";
+		if (allow.length() > 2)
+			allow = allow.substr(0, allow.length() - 2);
+		_response.setHeader("Allow", allow);
+		_buildErrorResponse(HttpStatus::MethodNotAllowed);
+		return;
 	}
-
 	if (!_isBodySizeValid()) {
 		_buildErrorResponse(HttpStatus::PayloadTooLarge);
 		return;
 	}
 
-	if (!_isMethodAllowed()) {
-		_buildErrorResponse(HttpStatus::MethodNotAllowed);
-		return;
+	{
+		std::string real_path_tmp;
+		if(_route)
+			real_path_tmp =  _resolveFullPath();
+		else
+			real_path_tmp	=  _request.path_name;
+		if (isCgiRequest(real_path_tmp)) 
+			return;
 	}
 
-	std::string	real_path = _resolvePath();
+
+	std::string	real_path = _resolveFullPath();
+	LOG_DEBUG << "real path: " << real_path;
 
 	switch (_request.getMethod()) {
 		case HTTP_GET:
@@ -70,6 +123,9 @@ void	RequestHandler::handle(void) {
 		case HTTP_DELETE:
 			_handleDelete(real_path);
 			break;
+		case HTTP_HEAD:
+			_response.setBody("");
+			break;
 		default:
 			_buildErrorResponse(HttpStatus::NotImplemented); // NOTE: 501
 			break;
@@ -77,12 +133,18 @@ void	RequestHandler::handle(void) {
 }
 
 bool	RequestHandler::_isBodySizeValid(void) const {
+	LOG_DEBUG << "max size: "<< _route->client_max_body_size;
 	if (_route->client_max_body_size <= 0)
 		return true;
 
 	size_t	body_size = _request.getBytesReceived();
 	if (_request.getContentLength() > body_size)
 		body_size = _request.getContentLength();
+
+	LOG_DEBUG << 
+		"getBytesReceived: " << body_size <<
+		"Content-Length: " << _request.getContentLength() <<
+		"max size: " << _route->client_max_body_size;
 
 	if (body_size > static_cast<size_t>(_route->client_max_body_size))
 		return false;
@@ -121,8 +183,27 @@ std::string	RequestHandler::_resolvePath(void) const {
 	return "";
 }
 
+std::string	RequestHandler::_resolveFullPath(void) const {
+	std::string	path = _route->root;
+	std::string	uri_path = _request.path_name;
+
+	if (path.length() > 0 && path[path.length() - 1] == '/' && uri_path.length() > 0 && uri_path[0] == '/')
+		uri_path = uri_path.substr(1);
+
+	else if (path.length() > 0 && path[path.length() - 1] != '/' && uri_path.length() > 0 && uri_path[0] != '/')
+		path += "/";
+
+	char	buff[PATH_MAX];
+
+	if (realpath((path + uri_path).c_str(), buff) != NULL) {
+		return std::string(buff);
+	}
+	return "";
+}
+
 
 void	RequestHandler::_buildErrorResponse(HttpStatus::Code code) {
+	this->_request.setState(HttpRequest::ERROR);
 	_response.setStatusCode(code);
 	_response.setHeader("Content-Type", "text/html");
 
@@ -171,33 +252,45 @@ void	RequestHandler::_buildErrorResponse(HttpStatus::Code code) {
 
 
 void	RequestHandler::_handleGet(const std::string &real_path) {
+	std::string	file_path = _resolveFullPath();
+	if (file_path.empty())
+		file_path = real_path;
+
+	if (_isCgiExtension(file_path)) {
+		_handleCGI(file_path);
+		return;
+	}
+
 	struct stat	file_stat;
 
-	if (stat(real_path.c_str(), &file_stat) != 0) {
+	if (stat(file_path.c_str(), &file_stat) != 0) {
 		_buildErrorResponse(HttpStatus::NotFound); // 404
 		return;
 	}
 
-	if (access(real_path.c_str(), R_OK) != 0) {
+	if (access(file_path.c_str(), R_OK) != 0) {
 		_buildErrorResponse(HttpStatus::Forbidden); // 403
 		return;
 	}
 
 	if (S_ISDIR(file_stat.st_mode)) {
-		_handleDirectory(real_path);
-		return;
-	}
-
-	if (_isCgiExtension(real_path)) {
-		_handleCGI(real_path);
+		std::string	uri = _request.getUri().getPath();
+		if (uri[uri.size() - 1] != '/') {
+			_response.setStatusCode(HttpStatus::MovedPermanently);// 301
+			_response.setHeader("Location", uri + '/');
+			_response.setHeader("Content-Length", "0");
+			_response.build();
+			return;
+		}
+		_handleDirectory(file_path);
 		return;
 	}
 
 	_response.setStatusCode(HttpStatus::OK);
 
-	_response.setHeader("Content-Type", _guessMimeType(real_path));
+	_response.setHeader("Content-Type", _guessMimeType(file_path));
 
-	if (!_response.setFileBody(real_path)) {
+	if (!_response.setFileBody(file_path)) {
 		_buildErrorResponse(HttpStatus::InternalServerError);
 		return;
 	}
@@ -256,9 +349,9 @@ bool	RequestHandler::isCgiRequest(const std::string &real_path) const {
 bool	RequestHandler::isCgi() const {
 	std::string real;
 	if (_route != NULL)
-		real = _resolvePath();
+		real = _resolveFullPath();
 	else
-		real = _request.getUri().getPath();
+		real = _request.path_name;
 	return _isCgiExtension(real);
 }
 
@@ -319,13 +412,13 @@ std::string	RequestHandler::getCgiInterpreter(const std::string &real_path) cons
 std::string	RequestHandler::getCgiScriptPath() const {
 	if (_route == NULL)
 		return "";
-	return _resolvePath();
+	return _resolveFullPath();
 }
 
 std::string	RequestHandler::getCgiInterpreter() const {
 	std::string script = getCgiScriptPath();
 	if (script.empty())
-		script = _request.getUri().getPath();
+		script = _request.path_name;
 	return getCgiInterpreter(script);
 }
 
@@ -338,7 +431,7 @@ std::string	RequestHandler::getUploadDestination() const {
 	if (loc == NULL || loc->upload.empty())
 		return "";
 	std::string dir_path = loc->upload;
-	std::string uri_path = _request.getUri().getPath();
+	std::string uri_path = _request.path_name;
 	std::string base_name = uri_path;
 	size_t last_slash = uri_path.find_last_of('/');
 	if (last_slash != std::string::npos)
@@ -391,7 +484,7 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 	}
 
 	if (!_route->autoindex) {
-		_buildErrorResponse(HttpStatus::Forbidden); // 403
+		_buildErrorResponse(HttpStatus::NotFound); // 404
 		return;
 	}
 
@@ -400,7 +493,7 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 		_buildErrorResponse(HttpStatus::Forbidden); // 403
 		return;
 	}
-
+	// TODO: hadi rode meneha lbale
 	std::string	uri_path = _request.getUri().getPath();
 	std::string	html = "<html>\r\n<head><title>Index of " + uri_path + "</title></head>\r\n"
 		"<body>\r\n<h1>Index of " + uri_path + "</h1>\r\n<hr><pre>\n";
@@ -439,13 +532,17 @@ void    RequestHandler::_handleDirectory(const std::string &real_path) {
 }
 
 void    RequestHandler::_handlePost(const std::string &real_path) {
-	if (_isCgiExtension(real_path)) {
-		_handleCGI(real_path);
+	std::string resolve_path = _resolveFullPath();
+	if (resolve_path.empty())
+		resolve_path = real_path;
+
+	if (_isCgiExtension(resolve_path)) {
+		_handleCGI(resolve_path);
 		return;
 	}
 
 	if (_request.getBytesReceived() == 0) {
-		_response.setStatusCode(HttpStatus::NoContent); // 204
+		_response.setStatusCode(HttpStatus::OK); // 200
 		_response.build();
 		return;
 	}
@@ -458,15 +555,20 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 	}
 
 	std::string	dir_path = loc->upload;
-	std::string	uri_path = _request.getUri().getPath();
-	std::string	base_name = uri_path;
-	size_t		last_slash = uri_path.find_last_of('/');
+	std::string	base_name;
 
-	if (last_slash != std::string::npos)
-		base_name = uri_path.substr(last_slash + 1);
+	{
+		size_t last_slash = _request._uri.getPath().find_last_of('/');
+		if (last_slash != std::string::npos)
+			base_name = _request._uri.getPath().substr(last_slash + 1);
+		// size_t last_slash = _request.path_name.find_last_of('/');
+		// if (last_slash != std::string::npos)
+		// 	base_name = _request.path_name.substr(last_slash + 1);
+	}
 
-	if (base_name.empty() || base_name == "." || base_name == "..")
-		base_name = "upload";
+	if (base_name.empty() || base_name == "." || base_name == ".."
+		|| base_name.find('/') != std::string::npos)
+		base_name = generate_random(8);
 
 	if (dir_path.length() > 0 && dir_path[dir_path.length() - 1] != '/')
 		dir_path += "/";
@@ -528,13 +630,19 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 }
 
 void    RequestHandler::_handleDelete(const std::string &real_path) {
-	if (_isCgiExtension(real_path)) {
-		_handleCGI(real_path);
+	std::string	resolved = _resolveFullPath();
+	if (resolved.empty())
+		resolved = real_path;
+	LOG_DEBUG << "path to delete: " <<  resolved << ", real_path: " << real_path;
+
+	if (_isCgiExtension(resolved)) {
+		_handleCGI(resolved);
 		return;
 	}
+
 	struct stat	file_stat;
 
-	if (stat(real_path.c_str(), &file_stat) != 0) {
+	if (stat(resolved.c_str(), &file_stat) != 0) {
 		_buildErrorResponse(HttpStatus::NotFound); // 404
 		return;
 	}
@@ -544,10 +652,9 @@ void    RequestHandler::_handleDelete(const std::string &real_path) {
 		return;
 	}
 
-	if (unlink(real_path.c_str()) == 0) {
+	if (unlink(resolved.c_str()) == 0) {
 		_response.setStatusCode(HttpStatus::NoContent); // 204
 		_response.build();
-
 	}
 	else
 		_buildErrorResponse(HttpStatus::Forbidden); // 403

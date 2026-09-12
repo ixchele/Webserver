@@ -32,17 +32,18 @@ Epoll::EventState Client::_receiveData()
     buffer[bytes] = '\0';
 
     _request.parse(buffer, static_cast<size_t>(bytes));
-    if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
+    if (_request.getState() == HttpRequest::COMPLETE)
     {
         const std::string host = _request.getHeader("host");
         const ServerConfig &conf = *_getConfig(host);
+        RequestHandler rqst_handler(_request, _response, conf);
+        rqst_handler.handle();
         // if (_request.isCgi())
         // {
 
         // }
-        RequestHandler rqst_handler(_request, _response, conf);
-        rqst_handler.handle();
-        if (rqst_handler.isCgi()) {
+        // 
+        if (_request.getState() != HttpRequest::ERROR && rqst_handler.isCgi()) {
             int body_fd = rqst_handler.getBodyFd();
             std::string body_path = rqst_handler.getBodyFilePath();
             std::string upload_dst = rqst_handler.getUploadDestination();
@@ -53,6 +54,17 @@ Epoll::EventState Client::_receiveData()
                 if (body_fd != -1)
                     ::close(body_fd);
             }
+            else if(
+                access(script.c_str(), R_OK)
+                ||
+                access(interp.c_str(), X_OK)
+        )
+            {
+                _buildError(HttpStatus::Forbidden);
+                m_state = CSENDING_HEADERS;
+                if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
+                    return Epoll::EERROR;
+            }
             else if (startCgi(interp, script, body_fd) != 0)
             {
                 // the error is built inside startCgi()
@@ -60,6 +72,16 @@ Epoll::EventState Client::_receiveData()
             else
                 return Epoll::ECONTINUE;
         }
+        m_state = CSENDING_HEADERS;
+        if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
+            return Epoll::EERROR;
+    }
+    else if( _request.getState() == HttpRequest::ERROR)
+    {
+        const std::string host = _request.getHeader("host");
+        const ServerConfig &conf = *_getConfig(host);
+        RequestHandler rqst_handler(_request, _response, conf);
+        rqst_handler.handle();
         m_state = CSENDING_HEADERS;
         if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
             return Epoll::EERROR;
@@ -119,6 +141,7 @@ Epoll::EventState Client::_sendData()
     }
     if (m_state == CFINISHED && _request.getHeader("connection") == "keep-alive")
     {
+		// LOG << "*** Client with fd " <<  m_fd << " will be keept alive";
         m_state = CKEEPT_ALIVE;
         if (_epoll.edit_fd(m_fd, this, EPOLLIN))
             return Epoll::EERROR;
@@ -447,7 +470,6 @@ const ServerConfig *Client::_getConfig(const std::string &host)
 {
     for (size_t i = 0; i < m_configs.size(); i++)
     {
-        // todo : use std::find
         for (size_t n = 0; n < m_configs[i]->names.size(); n++)
         {
             if (m_configs[i]->names[n] == host)

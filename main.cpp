@@ -15,18 +15,20 @@
 
 int main(int ac, char **av)
 {
-	if (ac != 2)
-		return 1;
+
 
 	try
 	{
+		std::string config = "Configs/server.conf";
+		if (ac == 2)
+			config = av[1];
+
 		Logger::getInstance().setLogFile("/tmp/Webserv.log");
 
-		TokenList tokenList = tokenizer(av[1]);
+		TokenList tokenList = tokenizer(config);
 		ConfigParser lexer(tokenList);
 		std::vector<ServerConfig> v_configs;
 		v_configs = lexer.parse();
-		// std::cout << *v_configs[0];
 
 		Multiplexer multiplexer(v_configs);
 		ServersMap::iterator it;

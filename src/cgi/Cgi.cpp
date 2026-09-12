@@ -50,9 +50,13 @@ void Cgi::_setEnv() {
 
   _env.push_back("REQUEST_METHOD=" + _request.getMethodStr());
   _env.push_back("REQUEST_URI=" + _request.getUri().getOriginal());
-  _env.push_back("SCRIPT_NAME=" + _request.getUri().getPath());
+  _env.push_back("SCRIPT_NAME=" + _request.path_name);
   _env.push_back("SCRIPT_FILENAME=" + _script_path);
+  _env.push_back("PATH_INFO=" + _request.getUri().getPath()); 
+  _env.push_back("PATH_TRANSLATED=" + _script_path);
   _env.push_back("QUERY_STRING=" + _request.getUri().getQuery());
+
+  LOG_DEBUG << "query: " << _request.getUri().getQuery();
 
   if (_body_fd != -1)
   {
