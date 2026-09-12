@@ -27,8 +27,6 @@ class HttpRequest {
 
 		void	parse(const std::string &raw_data);
 		void	parse(const char *data, size_t len);
-		// void	clear();
-		// void	prepareBodyStorage(const std::string &filepath);
 
 		ParseState			getState() const;
 		HttpStatus::Code	getErrorCode() const;
@@ -40,6 +38,7 @@ class HttpRequest {
 		size_t				getContentLength() const;
 		const std::string	&getBody() const;
 		size_t				getBytesReceived() const;
+		std::string			getPathName() const;
 		const std::map<std::string, std::string>	&getHeaders() const;
 		std::string	getHeader(const std::string &name) const;
 
@@ -50,12 +49,10 @@ class HttpRequest {
 
 		void	setState(ParseState state);
 		void	setErrorCode(HttpStatus::Code code);
+		void	setPathName(std::string path_name);
 
 		void reset();
-		// TODO: move it to private
-		Uri			_uri;
-		std::string path_name;
-		size_t headers_size;
+
 
 
 	private:
@@ -76,6 +73,8 @@ class HttpRequest {
 		ParseState			_state;
 		HttpStatus::Code	_code;
 
+		Uri			_uri;
+
 		Method		_method;
 		std::string	_version;
 		std::map<std::string, std::string>	_headers;
@@ -91,6 +90,9 @@ class HttpRequest {
 		BodyMode	_body_mode;
 		ChunkState	_chunk_state;
 		size_t		_chunk_size;
+
+		size_t headers_size;
+		std::string path_name;
 
 		void	_parseRequestLine(const std::string &line);
 		void	_parseHeaders(const std::string &header);

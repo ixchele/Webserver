@@ -7,7 +7,6 @@
 class Uri {
 public:
     Uri();
-    Uri(const std::string& raw_uri);
     ~Uri();
 
     bool parse(const std::string& raw_uri);

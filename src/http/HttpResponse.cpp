@@ -80,7 +80,6 @@ void HttpResponse::build(void)
 
 	if (!_has_file && !_body_string.empty())
 		_header_buffer += _body_string;
-	// LOG << "resposne header: " << _header_buffer ;
 
 }
 

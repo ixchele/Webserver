@@ -14,7 +14,6 @@
 #include <sys/stat.h>
 #include <Logger.hpp>
 
-// hard safety ceiling against OOM for unbounded (chunked) bodies
 // #define MAX_REQUEST_BODY   (64 * 1024 * 1024)
 #define MAX_REQUEST_BODY   (200000000)
 
@@ -70,6 +69,8 @@ std::string HttpRequest::getHeader(const std::string &name) const {
 	return "";
 }
 
+std::string	HttpRequest::getPathName() const {return path_name;}
+
 void	HttpRequest::_parseRequestLine(const std::string &line) {
 	std::istringstream	iss(line);
 	std::string			method_str, uri, version, extra;
@@ -81,15 +82,12 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	{
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : error 400
-		LOG << "here";
 		return;
 	}
 	
 	if (method_str.empty() || uri.empty()) {
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : error 400
-				LOG << "here";
-
 		return;
 	}
 	if (method_str == "GET") _method = HTTP_GET;
@@ -98,7 +96,6 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	else if (method_str == "HEAD") _method = HTTP_HEAD;
 	
 	else {
-		// LOG << "method_str: " << method_str << " hellooooooo";
 		_state = ERROR;
 		_code = HttpStatus::NotImplemented; // NOTE : 501
 		return;
@@ -114,8 +111,6 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	if (!_uri.parse(uri)) {
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : 400
-				LOG << "here";
-
 		return;
 	}
 
@@ -134,20 +129,15 @@ void HttpRequest::_parseHeaders(const std::string &line) {
     if (colon_pos == std::string::npos) {
         _state = ERROR;
         _code = HttpStatus::BadRequest; // NOTE : 400
-				LOG << "here";
-
         return;
     }
 
-	// TODO: trim value
     std::string	key = line.substr(0, colon_pos);
     std::string	value = line.substr(colon_pos + 1);
 
     if (key.empty() || key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t') {
         _state = ERROR;
         _code = HttpStatus::BadRequest; // NOTE : 400
-				LOG << "here";
-
         return;
     }
 
@@ -165,15 +155,11 @@ void HttpRequest::_parseHeaders(const std::string &line) {
         if (_headers.find("content-length") != _headers.end() || _headers.find("transfer-encoding") != _headers.end()) {
             _state = ERROR;
             _code = HttpStatus::BadRequest;
-					LOG << "here";
-
             return;
         }
         if (!_parseContentLength(value)) {
             _state = ERROR;
             _code = HttpStatus::BadRequest; //NOTE : 400
-					LOG << "here";
-
             return;
         }
     }
@@ -189,19 +175,14 @@ void HttpRequest::_parseHeaders(const std::string &line) {
         if (_headers.find("content-length") != _headers.end()) {
             _state = ERROR;
             _code = HttpStatus::BadRequest; //NOTE : 400 RFC 7230 §3.3.3
-					LOG << "here";
-
             return;
         }
     }
 
-	// TODO: check if this rule applies for all headers or not
 	if(_headers.find(key) != _headers.end())
 	{
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; //NOTE : 400 RFC 7230 §3.3.3
-				LOG << "here";
-
 		return;
 	}
 	_headers[key] = value;
@@ -248,17 +229,11 @@ void	HttpRequest::parse(const char *data, size_t len) {
 			}
 
 			else if (_state == HEADERS) {
-				LOG << "headers size: " << headers_size;
-
 				if (line.empty()) { // final line fo header
 					if(headers_size > MAX_HEADER_SIZE)
 					{
 						_state = ERROR;
 						_code = HttpStatus::BadRequest;
-								LOG << "headers size: " << headers_size;
-								for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it) {
-									LOG_DEBUG << "[" << it->first << ":" << it->second << "]";
-								}
 					}
 					else
 					{
@@ -407,8 +382,6 @@ void	HttpRequest::_processChunked(void) {
 				
 				_state = ERROR;
 				_code = HttpStatus::BadRequest;
-						LOG << "here";
-
 				return;
 			}
 
@@ -420,7 +393,6 @@ void	HttpRequest::_processChunked(void) {
 				if (_bytes_received + _chunk_size > MAX_REQUEST_BODY) {
 					_state = ERROR;
 					_code = HttpStatus::PayloadTooLarge;
-					LOG << "here";
 					return;
 				}
 				_chunk_state = CHUNK_DATA;
@@ -434,7 +406,6 @@ void	HttpRequest::_processChunked(void) {
 				if (_bytes_received + take > MAX_REQUEST_BODY) {
 					_state = ERROR;
 					_code = HttpStatus::PayloadTooLarge;
-					LOG << "here";
 					return;
 				}
 				if (!_body_file.is_open()) {
@@ -467,8 +438,6 @@ void	HttpRequest::_processChunked(void) {
 			if (_buffer.compare(0, 2, "\r\n") != 0) {
 				_state = ERROR;
 				_code = HttpStatus::BadRequest;
-						LOG << "here";
-
 				return;
 			}
 			_buffer.erase(0, 2);
@@ -510,10 +479,8 @@ bool	HttpRequest::_parseChunkSize(const std::string &line) {
 	// but keep this defensive in case that ever changes.
 	size_t	pos = line.find("\r\n");
 	std::string hexpart = pos == std::string::npos ? line : line.substr(0, pos);
-	// LOG << "hexpart " << hexpart;
 
 	if (hexpart.empty()) {
-		// LOG << "empty chunk-size line -> reject with 400";
 		return false;
 	}
 
@@ -525,12 +492,10 @@ bool	HttpRequest::_parseChunkSize(const std::string &line) {
 		else if (c >= 'a' && c <= 'f') d = c - 'a' + 10;
 		else if (c >= 'A' && c <= 'F') d = c - 'A' + 10;
 		else {
-			// LOG << "invalid hex digit in chunk size -> reject with 400";
 			return false;
 		}
 
 		if (num > (static_cast<size_t>(-1) - d) / 16) {
-			// LOG << "chunk size overflow -> reject with 400";
 			return false;
 		}
 		num = num * 16 + d;
@@ -564,6 +529,10 @@ void	HttpRequest::setState(ParseState state) {
 
 void	HttpRequest::setErrorCode(HttpStatus::Code code) {
 	_code = code;
+}
+
+void	HttpRequest::setPathName(std::string path) {
+	path_name = path;
 }
 
 void HttpRequest::reset() {

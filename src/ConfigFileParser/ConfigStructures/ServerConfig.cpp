@@ -67,10 +67,8 @@ const CommonConfig    *ServerConfig::matchRoute(HttpRequest &request) const {
 		}
 	}
 
-
-	if (best_match != NULL)
-	{
-		request.path_name = uri.substr(best_match->path.length());
+	if (best_match != NULL) {
+		request.setPathName(uri.substr(best_match->path.length()));
 		return best_match;
 	}
 

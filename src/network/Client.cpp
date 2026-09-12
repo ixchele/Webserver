@@ -38,11 +38,7 @@ Epoll::EventState Client::_receiveData()
         const ServerConfig &conf = *_getConfig(host);
         RequestHandler rqst_handler(_request, _response, conf);
         rqst_handler.handle();
-        // if (_request.isCgi())
-        // {
-
-        // }
-        // 
+        
         if (_request.getState() != HttpRequest::ERROR && rqst_handler.isCgi()) {
             int body_fd = rqst_handler.getBodyFd();
             std::string body_path = rqst_handler.getBodyFilePath();
@@ -141,7 +137,6 @@ Epoll::EventState Client::_sendData()
     }
     if (m_state == CFINISHED && _request.getHeader("connection") == "keep-alive")
     {
-		// LOG << "*** Client with fd " <<  m_fd << " will be keept alive";
         m_state = CKEEPT_ALIVE;
         if (_epoll.edit_fd(m_fd, this, EPOLLIN))
             return Epoll::EERROR;

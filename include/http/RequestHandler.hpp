@@ -29,13 +29,12 @@ class RequestHandler {
 		std::string	getCgiScriptPath() const;
 		std::string	getUploadDestination() const;
 
-		// TODO: move them back to private
+	private:
 		HttpRequest	&_request;
 		HttpResponse		&_response;
 		const ServerConfig	&_config;
 
 		const CommonConfig	*_route;
-	private:
 
 		bool	_isBodySizeValid(void) const;
 		bool	_isMethodAllowed(void) const;

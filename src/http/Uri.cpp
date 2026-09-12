@@ -6,10 +6,6 @@
 
 Uri::Uri() : _port(0) {}
 
-// Uri::Uri(const std::string& raw_uri) : _port(0) {
-// 	// parse(raw_uri);
-// }
-
 Uri::~Uri() {}
 
 void Uri::clear() {
@@ -28,7 +24,6 @@ bool Uri::parse(const std::string& raw_uri) {
 
 	_original = raw_uri;
 	std::string working_uri = raw_uri;
-	LOG_DEBUG << "the uri: " << working_uri;
 
 	size_t hash_pos = working_uri.find('#');
 	if (hash_pos != std::string::npos) {
