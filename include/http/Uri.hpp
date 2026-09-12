@@ -2,6 +2,7 @@
 #define URI_HPP
 
 #include <string>
+#define MAX_URI_LENGTH 2048
 
 class Uri {
 public:

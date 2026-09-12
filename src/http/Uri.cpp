@@ -2,12 +2,13 @@
 #include <sstream>
 #include <cstdlib>
 #include <vector>
+#include <Logger.hpp>
 
 Uri::Uri() : _port(0) {}
 
-Uri::Uri(const std::string& raw_uri) : _port(0) {
-	parse(raw_uri);
-}
+// Uri::Uri(const std::string& raw_uri) : _port(0) {
+// 	// parse(raw_uri);
+// }
 
 Uri::~Uri() {}
 
@@ -27,6 +28,7 @@ bool Uri::parse(const std::string& raw_uri) {
 
 	_original = raw_uri;
 	std::string working_uri = raw_uri;
+	LOG_DEBUG << "the uri: " << working_uri;
 
 	size_t hash_pos = working_uri.find('#');
 	if (hash_pos != std::string::npos) {
@@ -106,6 +108,8 @@ void Uri::_normalizePath(std::string &path) const {
 	if (path.empty() || path[0] != '/')
 		return;
 
+	bool has_trailing_slash = (path[path.length() - 1] == '/');
+
 	std::vector<std::string>	segments;
 	size_t	i = 0;
 
@@ -137,6 +141,9 @@ void Uri::_normalizePath(std::string &path) const {
 
 	if (normalized.empty())
 		normalized = "/";
+
+	if (has_trailing_slash && normalized != "/")
+		normalized += '/';
 
 	path = normalized;
 }

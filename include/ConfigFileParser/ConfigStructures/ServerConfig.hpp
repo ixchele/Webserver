@@ -1,6 +1,7 @@
 #pragma once
 #include <CommonConfig.hpp>
 #include <LocationConfig.hpp>
+#include <HttpRequest.hpp>
 #include <vector>
 
 struct	ServerConfig : public CommonConfig {
@@ -13,7 +14,7 @@ struct	ServerConfig : public CommonConfig {
 	~ServerConfig(void);
 
 	void	resetConf(void);
-	const CommonConfig	*matchRoute(const std::string &uri) const;
+	const CommonConfig	*matchRoute(HttpRequest &request) const;
 	virtual std::string str(const std::string& indent = "") const;
 	void	applyInheritance();
 };
