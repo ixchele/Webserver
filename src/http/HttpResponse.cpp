@@ -4,6 +4,7 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <Logger.hpp>
 
 HttpResponse::HttpResponse(void) : _status_code(HttpStatus::OK), _file_fd(-1), _file_size(0),_has_file(false)
 {
@@ -79,6 +80,8 @@ void HttpResponse::build(void)
 
 	if (!_has_file && !_body_string.empty())
 		_header_buffer += _body_string;
+	// LOG << "resposne header: " << _header_buffer ;
+
 }
 
 const std::string &HttpResponse::getHeaderBuffer(void) const

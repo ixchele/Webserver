@@ -65,7 +65,6 @@ void Server::create_socket()
     }
 }
 
-// TODO : make code more readable
 void Server::bind_address()
 {
     int opt = 1;
@@ -92,7 +91,7 @@ int Server::accept_connection()
 {
     int clientFd;
 
-    // TODO : catch client infos
+    //  : catch client infos
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
 
     return clientFd;

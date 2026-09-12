@@ -1,6 +1,7 @@
 #include <ConfigParser.hpp>
 #include <ServerConfig.hpp>
 #include <LocationConfig.hpp>
+#include <Logger.hpp>
 #include <cstddef>
 #include <sstream>
 #include <vector>
@@ -39,37 +40,28 @@ void    ServerConfig::applyInheritance() {
 		if (location->index.empty() && !this->index.empty())
 			location->index = this->index;
 
-		if (location->return_val.empty() && !this->return_val.empty())
-			location->return_val = this->return_val;
-
-		if (location->return_status == 0 && this->return_status != 0)
-			location->return_status = this->return_status;
-
-		if (location->autoindex == false && this->autoindex == true)
-			location->autoindex = this->autoindex;
-
 		if (location->client_max_body_size == 1024 && this->client_max_body_size != 1024)
 			location->client_max_body_size = this->client_max_body_size;
 
 		if (!this->error_page.empty())
 			location->error_page.insert(this->error_page.begin(), this->error_page.end());
 
-		if (!this->cgi_pass.empty())
-			location->cgi_pass.insert(this->cgi_pass.begin(), this->cgi_pass.end());
-
 		validateDirectives(*location);
 	}
 
 }
 
-const CommonConfig    *ServerConfig::matchRoute(const std::string &uri) const {
+const CommonConfig    *ServerConfig::matchRoute(HttpRequest &request) const {
+	std::string uri = request.getUri().getPath();
 	const LocationConfig	*best_match = NULL;
 	size_t					longest_match_len = 0;
 
+	// LOG << "match " << uri;
 	for (size_t i = 0; i < locations.size(); ++i) {
 		const std::string	&loc_path = locations[i].path;
 
 		if (uri.find(loc_path) == 0) {
+			// // LOG << "did match with " << loc_path;
 			if (loc_path.length() > longest_match_len) {
 				longest_match_len = loc_path.length();
 				best_match = &locations[i];
@@ -78,7 +70,12 @@ const CommonConfig    *ServerConfig::matchRoute(const std::string &uri) const {
 	}
 
 	if (best_match != NULL)
+	{
+		request.path_name = uri.substr(best_match->path.length());
+		// LOG << "best match with " << best_match->path;
+		// LOG << "path_name " << request.path_name;
 		return best_match;
+	}
 
 	return this;
 }

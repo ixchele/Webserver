@@ -50,5 +50,6 @@ class LogStream {
 # define LOG_INFO	LogStream(Logger::INFO)
 # define LOG_WARN	LogStream(Logger::WARNING)
 # define LOG_ERROR	LogStream(Logger::ERROR)
+# define LOG LOG_DEBUG << __FILE__ << ":" << __LINE__ << " " 
 
 #endif

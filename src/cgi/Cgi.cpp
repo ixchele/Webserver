@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
+#include <sstream>
 #include <cerrno>
 #include <string>
 #include <map>
@@ -49,9 +50,13 @@ void Cgi::_setEnv() {
 
   _env.push_back("REQUEST_METHOD=" + _request.getMethodStr());
   _env.push_back("REQUEST_URI=" + _request.getUri().getOriginal());
-  _env.push_back("SCRIPT_NAME=" + _request.getUri().getPath());
-  _env.push_back("SCRIPT_FILEENAME=" + _script_path);
+  _env.push_back("SCRIPT_NAME=" + _request.path_name);
+  _env.push_back("SCRIPT_FILENAME=" + _script_path);
+  _env.push_back("PATH_INFO=" + _request.getUri().getPath()); 
+  _env.push_back("PATH_TRANSLATED=" + _script_path);
   _env.push_back("QUERY_STRING=" + _request.getUri().getQuery());
+
+  LOG_DEBUG << "query: " << _request.getUri().getQuery();
 
   if (_body_fd != -1)
   {
@@ -140,12 +145,12 @@ int Cgi::execute() {
     }
 
     // I must remove this if I want to see the script errors
-    int blackhole = open("/dev/null", O_WRONLY);
-    if (blackhole != -1)
-    {
-      (void)dup2(blackhole, STDERR_FILENO);
-      (void)close(blackhole);
-    }
+    // int blackhole = open("/dev/null", O_WRONLY);
+    // if (blackhole != -1)
+    // {
+    //   (void)dup2(blackhole, STDERR_FILENO);
+    //   (void)close(blackhole);
+    // }
 
     std::string dir;
     size_t slash = _script_path.find_last_of('/');
@@ -235,5 +240,5 @@ Cgi::~Cgi()
   if (_notify[0] != -1) (void)close(_notify[0]);
   if (_notify[1] != -1) (void)close(_notify[1]);
   if (_output_fd != -1) (void)close(_output_fd);
-  if (!_output_path.empty()) (void)unlink(_output_path.c_str());
+  // if (!_output_path.empty()) (void)unlink(_output_path.c_str());
 }

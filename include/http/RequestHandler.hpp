@@ -9,7 +9,7 @@
 
 class RequestHandler {
 	public:
-		RequestHandler(const HttpRequest &request, HttpResponse &response, const ServerConfig &config);
+		RequestHandler(HttpRequest &request, HttpResponse &response, const ServerConfig &config);
 		~RequestHandler(void);
 
 		void	handle(void);
@@ -29,17 +29,19 @@ class RequestHandler {
 		std::string	getCgiScriptPath() const;
 		std::string	getUploadDestination() const;
 
-	private:
-		const HttpRequest	&_request;
+		// TODO: move them back to private
+		HttpRequest	&_request;
 		HttpResponse		&_response;
 		const ServerConfig	&_config;
 
 		const CommonConfig	*_route;
+	private:
 
 		bool	_isBodySizeValid(void) const;
 		bool	_isMethodAllowed(void) const;
 
 		std::string	_resolvePath(void) const;
+		std::string	_resolveFullPath(void) const;
 
 		void	_handleGet(const std::string &real_path);
 		void	_handlePost(const std::string &real_path);

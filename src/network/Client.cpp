@@ -32,30 +32,38 @@ Epoll::EventState Client::_receiveData()
     buffer[bytes] = '\0';
 
     _request.parse(buffer, static_cast<size_t>(bytes));
-    if (_request.getState() == HttpRequest::COMPLETE || _request.getState() == HttpRequest::ERROR)
+    if (_request.getState() == HttpRequest::COMPLETE)
     {
         const std::string host = _request.getHeader("host");
         const ServerConfig &conf = *_getConfig(host);
+        RequestHandler rqst_handler(_request, _response, conf);
+        rqst_handler.handle();
         // if (_request.isCgi())
         // {
 
         // }
-        RequestHandler rqst_handler(_request, _response, conf);
-        rqst_handler.handle();
-        if (rqst_handler.isCgi()) {
+        // 
+        if (_request.getState() != HttpRequest::ERROR && rqst_handler.isCgi()) {
             int body_fd = rqst_handler.getBodyFd();
             std::string body_path = rqst_handler.getBodyFilePath();
             std::string upload_dst = rqst_handler.getUploadDestination();
             std::string script = rqst_handler.getCgiScriptPath();
             std::string interp = rqst_handler.getCgiInterpreter();
-            RequestHandler::CgiMode mode = rqst_handler.getCgiMode();
-            LOG_DEBUG << "CGI hook: mode=" << mode << " script=" << script << " interp=" << interp
-                      << " body_fd=" << body_fd << " body_path=" << body_path << " upload_dst=" << upload_dst;
-            
             if (interp.empty() || script.empty())
             {
                 if (body_fd != -1)
                     ::close(body_fd);
+            }
+            else if(
+                access(script.c_str(), R_OK)
+                ||
+                access(interp.c_str(), X_OK)
+        )
+            {
+                _buildError(HttpStatus::Forbidden);
+                m_state = CSENDING_HEADERS;
+                if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
+                    return Epoll::EERROR;
             }
             else if (startCgi(interp, script, body_fd) != 0)
             {
@@ -68,12 +76,16 @@ Epoll::EventState Client::_receiveData()
         if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
             return Epoll::EERROR;
     }
-
-    LOG_DEBUG << "The Request of client on fd " << m_fd << ":"
-              << "\tMethod: " << _request.getMethod()
-              << "\tPath: " << _request.getUri().getPath()
-              << "\tVersion: " << _request.getVersion()
-              << "\tconnection: " << _request.getHeader("connection");
+    else if( _request.getState() == HttpRequest::ERROR)
+    {
+        const std::string host = _request.getHeader("host");
+        const ServerConfig &conf = *_getConfig(host);
+        RequestHandler rqst_handler(_request, _response, conf);
+        rqst_handler.handle();
+        m_state = CSENDING_HEADERS;
+        if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
+            return Epoll::EERROR;
+    }
 
     return Epoll::ECONTINUE;
 }
@@ -129,8 +141,8 @@ Epoll::EventState Client::_sendData()
     }
     if (m_state == CFINISHED && _request.getHeader("connection") == "keep-alive")
     {
+		// LOG << "*** Client with fd " <<  m_fd << " will be keept alive";
         m_state = CKEEPT_ALIVE;
-        LOG_DEBUG << "Client with fd " << m_fd << " will be keept alive";
         if (_epoll.edit_fd(m_fd, this, EPOLLIN))
             return Epoll::EERROR;
         _reset();
@@ -142,10 +154,6 @@ Epoll::EventState Client::_sendData()
 Epoll::EventState Client::handle_event(uint32_t event)
 {
     // to do
-    if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
-    {
-        return Epoll::EERROR;
-    }
     if (m_state == CEXECUTING_CGI)
     {
         if (_cgi != NULL && time(NULL) - _cgi_start > CGI_TIMEOUT)
@@ -154,6 +162,10 @@ Epoll::EventState Client::handle_event(uint32_t event)
             return Epoll::ECONTINUE;
         }
         return _handleCgiEvent();
+    }
+    if (event & EPOLLERR || event & EPOLLHUP || event & EPOLLRDHUP)
+    {
+        return Epoll::EERROR;
     }
     if (event & EPOLLIN)
     {
@@ -318,7 +330,6 @@ void Client::_buildCgiResponse() {
         status = HttpStatus::Found;
     
     const off_t body_size = file_size - static_cast<off_t>(body_start);
-    LOG_DEBUG << "CGI -> status " << status << ", body " << body_size << " bytes";
     
     _response.setStatusCode(status);
 
@@ -328,6 +339,10 @@ void Client::_buildCgiResponse() {
         const std::string lname = _lower(it->first);
         if (lname == "status" || lname == "content-length")
             continue;
+        if (_request.getHeader("Cookie") != "")
+        {
+            _response.setHeader("Set-Cookie", _request.getHeader("Cookie"));
+        }
         _response.setHeader(it->first, it->second);
     }
     if (body_size == 0)
@@ -455,7 +470,6 @@ const ServerConfig *Client::_getConfig(const std::string &host)
 {
     for (size_t i = 0; i < m_configs.size(); i++)
     {
-        // todo : use std::find
         for (size_t n = 0; n < m_configs[i]->names.size(); n++)
         {
             if (m_configs[i]->names[n] == host)
