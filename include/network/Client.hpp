@@ -24,7 +24,7 @@ class Client : public AFd
     std::vector<const ServerConfig *> &m_configs;
     std::list<Client *>::iterator m_it;
 
-    Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs);
+    Client(int fd, int id, Epoll &epoll, std::vector<const ServerConfig *> &configs);
 
     virtual Epoll::EventState handle_event(uint32_t event);
     void handleTimeout();
@@ -32,13 +32,14 @@ class Client : public AFd
     int startCgi(const std::string &interpreter,
                   const std::string &script_path, int body_fd);
 
+    int getId();
+
     virtual ~Client();
 
   private:
-    // sockaddr_in _client_addr;
+    int _id;
     Epoll &_epoll;
     HttpRequest _request;
-    // RequestHandler *_rqst_handler;
     HttpResponse _response;
     ssize_t _bytes_sent;
     off_t _file_offset;

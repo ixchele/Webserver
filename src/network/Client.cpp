@@ -12,9 +12,9 @@
 #include <cerrno>
 #include <cstring>
 
-Client::Client(int fd, Epoll &epoll, std::vector<const ServerConfig *> &configs)
+Client::Client(int fd, int id, Epoll &epoll, std::vector<const ServerConfig *> &configs)
     : AFd(fd, AFd::CLIENT), m_lastActivity(time(NULL)), m_state(CRECEVING),
-      m_configs(configs), _epoll(epoll), _request(fd), _bytes_sent(0),
+      m_configs(configs), _id(id), _epoll(epoll), _request(fd), _bytes_sent(0),
       _file_offset(0), _cgi(NULL), _cgi_start(0), _cgi_body_off(0)
 {
 }
@@ -26,7 +26,7 @@ Epoll::EventState Client::_receiveData()
     ssize_t bytes = recv(m_fd, buffer, APP_BUFFER_SIZE, 0);
     if (bytes == -1 || bytes == 0)
     {
-        LOG_WARN << "recv() returned " << bytes << " on client with fd " << m_fd;
+        LOG_WARN << "recv() returned " << bytes << " on client " << _id;
         return Epoll::EERROR;
     }
     buffer[bytes] = '\0';
@@ -94,9 +94,14 @@ Epoll::EventState Client::_sendData()
 
         {
             ssize_t headers_bytes_sent = send(m_fd, headers.c_str() + _bytes_sent, headers.size() - _bytes_sent, 0);
-            if (headers_bytes_sent == -1 || headers_bytes_sent == 0)
+            if (headers_bytes_sent == -1)
             {
-                LOG_WARN << "send() returned " << headers_bytes_sent << " on client with fd " << m_fd;
+                LOG_WARN << "send() failed on client " << _id;
+                return Epoll::EERROR;
+            }
+            else if (headers_bytes_sent == 0)
+            {
+                LOG_INFO << "Client " << _id << " Closed his connection";
                 return Epoll::EERROR;
             }
             _bytes_sent += headers_bytes_sent;
@@ -123,9 +128,14 @@ Epoll::EventState Client::_sendData()
         ssize_t body_bytes_sent = sendfile(m_fd, _response.getFileFd(), &_file_offset, APP_BUFFER_SIZE);
         if (body_bytes_sent == 0 && _file_offset == _response.getFileSize())
             m_state = CFINISHED;
-        else if (body_bytes_sent == -1 || body_bytes_sent == 0)
+        else if (body_bytes_sent == -1)
         {
-            LOG_WARN << "sendfile() returned " << body_bytes_sent << " on client with fd " << m_fd;
+            LOG_WARN << "sendfile() failed with -1 on client " << _id;
+            return Epoll::EERROR;
+        }
+        else if (body_bytes_sent == 0)
+        {
+            LOG_INFO << "Client " << _id << " Closed his connection";
             return Epoll::EERROR;
         }
         if (_file_offset == _response.getFileSize())
@@ -139,8 +149,12 @@ Epoll::EventState Client::_sendData()
     {
         m_state = CKEEPT_ALIVE;
         if (_epoll.edit_fd(m_fd, this, EPOLLIN))
+        {
+            LOG_WARN << "epoll_ctl(EPOLLOUT) failed for Client " << _id;
             return Epoll::EERROR;
+        }
         _reset();
+        LOG_INFO << "Client " << _id << " will be kept alive";
         return Epoll::ECONTINUE;
     }
     return Epoll::EFINISHED;
@@ -198,6 +212,7 @@ int Client::startCgi(const std::string &interpreter,
         return -1;
     }
     _epoll.del_fd(m_fd);
+    LOG_INFO << "Client " << _id << " executed a cgi [" << interpreter << ", " << script_path << "]";
     return 0;
 }
 
@@ -246,7 +261,7 @@ void Client::_buildError(HttpStatus::Code errCode) {
 }
 
 void Client::_cgiTimeout() {
-    LOG_WARN << "CGI timed out on client with fd " << m_fd;
+    LOG_WARN << "CGI timed out on client " << _id;
     _epoll.del_fd(_cgi->getReadEnd());
     delete _cgi; _cgi = NULL;
     _buildError(HttpStatus::GatewayTimeout);
@@ -260,7 +275,7 @@ void Client::_buildCgiResponse() {
     struct stat st;
     if (_cgi->getOutputFd() == -1 || fstat(_cgi->getOutputFd(), &st) != 0)
     {
-        LOG_ERROR << "cannot fstat cgi output fd";
+        LOG_ERROR << "cannot fstat cgi output fd on client " << _id;
         _buildError(HttpStatus::BadGateway);
         return ;
     }
@@ -292,20 +307,20 @@ void Client::_buildCgiResponse() {
         }
         if (window.size() > MAX_CGI_HEADERS)
         {
-            LOG_WARN << "CGI response exceed ther limit";
+            LOG_WARN << "CGI response exceed ther limit on clinet " << _id;
             _buildError(HttpStatus::BadGateway);
             return;
         }
     }
     if (n == -1)
     {
-        LOG_ERROR << "pread(cgi_output) -> " << -1;
+        LOG_ERROR << "pread(cgi_output) failed on client " << _id;
         _buildError(HttpStatus::BadGateway);
         return;
     }
     if (body_start == std::string::npos)
     {
-        LOG_WARN << "CGI output has no header terminator";
+        LOG_WARN << "CGI output has no header terminator on client " << _id;
         _buildError(HttpStatus::BadGateway);
         return;
     }
@@ -317,7 +332,7 @@ void Client::_buildCgiResponse() {
     if (!_parseCgiHeaders(window, status, explicit_status,
         headers, has_location))
     {
-        LOG_WARN << "CGI output contains malformed headers";
+        LOG_WARN << "CGI output contains malformed headers on client " << _id;
         _buildError(HttpStatus::BadGateway);
         return;
     }
@@ -346,7 +361,7 @@ void Client::_buildCgiResponse() {
     {
         if (!_response.setFileBody(_cgi->getOutputPath()))
         {
-            LOG_ERROR << "cannot reopen cgi output file";
+            LOG_ERROR << "cannot reopen cgi output file on client " << _id;
             _buildError(HttpStatus::BadGateway);
             return ;
         }
@@ -473,7 +488,7 @@ const ServerConfig *Client::_getConfig(const std::string &host)
             }
         }
     }
-    LOG_INFO << "Client with fd " << m_fd << " will use the default config";
+    LOG_INFO << "Client " << _id << " will use a default config";
     return m_configs[0];
 }
 
@@ -483,6 +498,10 @@ void Client::_reset()
     _response.reset();
     _bytes_sent = 0;
     _file_offset = 0;
+}
+
+int Client::getId() {
+    return _id;
 }
 
 Client::~Client()

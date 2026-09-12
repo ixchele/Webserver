@@ -106,14 +106,14 @@ Epoll::EventState Server::handle_event(uint32_t event)
         LOG_WARN << "accept4() failed on " << m_key;
         return Epoll::ECONTINUE;
     }
-    LOG_INFO << "Accepted a client as fd " << clientFd;
-    Client *client = new Client(clientFd, _epoll, m_configs);
+    Client *client = new Client(clientFd, _clientsList.size(), _epoll, m_configs);
+    LOG_INFO << "Accepted a client as fd " << clientFd << " and id " << client->getId();
     if (_epoll.add_fd(clientFd, static_cast<AFd *>(client), EPOLLIN) != 0)
     {
-        LOG_WARN << "epoll_ctl() failed to add fd " << clientFd << " for " << m_key;
+        LOG_WARN << "epoll_ctl() failed to add fd " << clientFd << " for host " << m_key;
         _epoll.del_fd(clientFd);
         delete client;
-        LOG_INFO << "Ended connection with client on fd " << clientFd;
+        LOG_INFO << "Ended connection with client " << client->getId();
     }
     else
     {

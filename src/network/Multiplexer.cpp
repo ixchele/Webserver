@@ -53,7 +53,7 @@ void Multiplexer::startup()
         if (_epoll.add_fd(it->second->get_fd(), it->second, EPOLLIN))
             throw std::runtime_error("failed to add the server " + it->second->m_key +
                                      " in the epoll instance");
-        LOG_INFO << "added " << it->second->m_key << " as " << it->second->get_fd();
+        LOG_INFO << "added " << it->second->m_key << " with fd " << it->second->get_fd();
     }
     events_loop();
 }
@@ -137,7 +137,7 @@ void Multiplexer::_handle_timeout()
             {
                 _clientsList.pop_front();
                 _epoll.del_fd(client->get_fd());
-                LOG_INFO << "Client with fd " << client->get_fd() << " timed out";
+                LOG_INFO << "Client " << client->getId() << " timed out";
                 delete client;
             }
         }
