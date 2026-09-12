@@ -81,12 +81,15 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	{
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : error 400
+		LOG << "here";
 		return;
 	}
 	
 	if (method_str.empty() || uri.empty()) {
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : error 400
+				LOG << "here";
+
 		return;
 	}
 	if (method_str == "GET") _method = HTTP_GET;
@@ -111,6 +114,8 @@ void	HttpRequest::_parseRequestLine(const std::string &line) {
 	if (!_uri.parse(uri)) {
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; // NOTE : 400
+				LOG << "here";
+
 		return;
 	}
 
@@ -129,6 +134,8 @@ void HttpRequest::_parseHeaders(const std::string &line) {
     if (colon_pos == std::string::npos) {
         _state = ERROR;
         _code = HttpStatus::BadRequest; // NOTE : 400
+				LOG << "here";
+
         return;
     }
 
@@ -139,6 +146,8 @@ void HttpRequest::_parseHeaders(const std::string &line) {
     if (key.empty() || key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t') {
         _state = ERROR;
         _code = HttpStatus::BadRequest; // NOTE : 400
+				LOG << "here";
+
         return;
     }
 
@@ -156,11 +165,15 @@ void HttpRequest::_parseHeaders(const std::string &line) {
         if (_headers.find("content-length") != _headers.end() || _headers.find("transfer-encoding") != _headers.end()) {
             _state = ERROR;
             _code = HttpStatus::BadRequest;
+					LOG << "here";
+
             return;
         }
         if (!_parseContentLength(value)) {
             _state = ERROR;
             _code = HttpStatus::BadRequest; //NOTE : 400
+					LOG << "here";
+
             return;
         }
     }
@@ -176,6 +189,8 @@ void HttpRequest::_parseHeaders(const std::string &line) {
         if (_headers.find("content-length") != _headers.end()) {
             _state = ERROR;
             _code = HttpStatus::BadRequest; //NOTE : 400 RFC 7230 §3.3.3
+					LOG << "here";
+
             return;
         }
     }
@@ -185,6 +200,8 @@ void HttpRequest::_parseHeaders(const std::string &line) {
 	{
 		_state = ERROR;
 		_code = HttpStatus::BadRequest; //NOTE : 400 RFC 7230 §3.3.3
+				LOG << "here";
+
 		return;
 	}
 	_headers[key] = value;
@@ -231,11 +248,17 @@ void	HttpRequest::parse(const char *data, size_t len) {
 			}
 
 			else if (_state == HEADERS) {
+				LOG << "headers size: " << headers_size;
+
 				if (line.empty()) { // final line fo header
 					if(headers_size > MAX_HEADER_SIZE)
 					{
 						_state = ERROR;
 						_code = HttpStatus::BadRequest;
+								LOG << "headers size: " << headers_size;
+								for (std::map<std::string, std::string>::iterator it = _headers.begin(); it != _headers.end(); ++it) {
+									LOG_DEBUG << "[" << it->first << ":" << it->second << "]";
+								}
 					}
 					else
 					{
@@ -384,6 +407,8 @@ void	HttpRequest::_processChunked(void) {
 				
 				_state = ERROR;
 				_code = HttpStatus::BadRequest;
+						LOG << "here";
+
 				return;
 			}
 
@@ -442,6 +467,8 @@ void	HttpRequest::_processChunked(void) {
 			if (_buffer.compare(0, 2, "\r\n") != 0) {
 				_state = ERROR;
 				_code = HttpStatus::BadRequest;
+						LOG << "here";
+
 				return;
 			}
 			_buffer.erase(0, 2);
@@ -548,6 +575,7 @@ void HttpRequest::reset() {
 	_state = REQUEST_LINE;
 	_code = HttpStatus::OK;
 	_content_length = 0;
+	headers_size = 0;
 	_bytes_received = 0;
 	_uri.reset();
 	_version.clear();

@@ -33,7 +33,7 @@
 <root_dir>          ::= "root" <string> ";"
 <index_dir>         ::= "index" <string> { <string> } ";"
 <autoindex_dir>     ::= "autoindex" ("on" | "off") ";"
-<methods_dir>       ::= "allow_methods" <method_name> { <method_name> } ";"
+<methods_dir>       ::= "methods" <method_name> { <method_name> } ";"
 <return_dir>        ::= "return" <int> <string> ";"
 <upload_enable_dir> ::= "upload_enable" ("on" | "off") ";"
 <upload_path_dir>   ::= "upload_path" <string> ";"

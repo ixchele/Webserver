@@ -56,12 +56,10 @@ const CommonConfig    *ServerConfig::matchRoute(HttpRequest &request) const {
 	const LocationConfig	*best_match = NULL;
 	size_t					longest_match_len = 0;
 
-	// LOG << "match " << uri;
 	for (size_t i = 0; i < locations.size(); ++i) {
 		const std::string	&loc_path = locations[i].path;
 
 		if (uri.find(loc_path) == 0) {
-			// // LOG << "did match with " << loc_path;
 			if (loc_path.length() > longest_match_len) {
 				longest_match_len = loc_path.length();
 				best_match = &locations[i];
@@ -69,11 +67,10 @@ const CommonConfig    *ServerConfig::matchRoute(HttpRequest &request) const {
 		}
 	}
 
+
 	if (best_match != NULL)
 	{
 		request.path_name = uri.substr(best_match->path.length());
-		// LOG << "best match with " << best_match->path;
-		// LOG << "path_name " << request.path_name;
 		return best_match;
 	}
 
