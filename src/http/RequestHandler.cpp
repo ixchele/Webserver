@@ -20,10 +20,9 @@ std::string generate_random(size_t length) {
     const std::string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     
     std::string random_string;
-    random_string.reserve(length); // Prevents constant memory reallocations
+    random_string.reserve(length);
     
     for (size_t i = 0; i < length; ++i) {
-        // rand() % characters.size() gets an index between 0 and 61
         size_t random_index = rand() % characters.size();
         random_string += characters[random_index];
     }
@@ -245,11 +244,6 @@ void	RequestHandler::_handleGet(const std::string &real_path) {
 	if (file_path.empty())
 		file_path = real_path;
 
-	if (_isCgiExtension(file_path)) {
-		_handleCGI(file_path);
-		return;
-	}
-
 	struct stat	file_stat;
 
 	if (stat(file_path.c_str(), &file_stat) != 0) {
@@ -432,16 +426,6 @@ std::string	RequestHandler::getUploadDestination() const {
 	return dir_path + base_name;
 }
 
-void	RequestHandler::_handleCGI(const std::string &real_path) {
-	LOG_DEBUG << "[CGI STUB] request: " << real_path
-	          << " mode=" << getCgiMode()
-	          << " interpreter=" << getCgiInterpreter(real_path)
-	          << " body_fd=" << getBodyFd()
-	          << " body_path=" << getBodyFilePath()
-	          << " upload_dst=" << getUploadDestination();
-	return;
-}
-
 void    RequestHandler::_handleDirectory(const std::string &real_path) {
 	std::string	target_index_path = "";
 	bool		index_found = false;
@@ -524,13 +508,9 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 	if (resolve_path.empty())
 		resolve_path = real_path;
 
-	if (_isCgiExtension(resolve_path)) {
-		_handleCGI(resolve_path);
-		return;
-	}
-
 	if (_request.getBytesReceived() == 0) {
 		_response.setStatusCode(HttpStatus::OK); // 200
+		_response.setHeader("Content-Length", "0");
 		_response.build();
 		return;
 	}
@@ -549,9 +529,6 @@ void    RequestHandler::_handlePost(const std::string &real_path) {
 		size_t last_slash = _request.getUri().getPath().find_last_of('/');
 		if (last_slash != std::string::npos)
 			base_name = _request.getUri().getPath().substr(last_slash + 1);
-		// size_t last_slash = _request.path_name.find_last_of('/');
-		// if (last_slash != std::string::npos)
-		// 	base_name = _request.path_name.substr(last_slash + 1);
 	}
 
 	if (base_name.empty() || base_name == "." || base_name == ".."
@@ -621,11 +598,6 @@ void    RequestHandler::_handleDelete(const std::string &real_path) {
 	std::string	resolved = _resolveFullPath();
 	if (resolved.empty())
 		resolved = real_path;
-
-	if (_isCgiExtension(resolved)) {
-		_handleCGI(resolved);
-		return;
-	}
 
 	struct stat	file_stat;
 

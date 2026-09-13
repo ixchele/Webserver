@@ -103,5 +103,4 @@ class HttpRequest {
 		bool	_parseChunkSize(const std::string &line);
 		bool	_createTempFile(void);
 		void	_closeBodyFile(void);
-		// void	_extractLeftover();
 };

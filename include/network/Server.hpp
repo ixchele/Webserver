@@ -27,7 +27,6 @@ public:
   virtual Epoll::EventState handle_event(uint32_t event);
 
   void run();
-  // void end_connection(int fd);
   void add_config(const ServerConfig *config);
 
   static std::string craft_key(const std::string &ip, int port);

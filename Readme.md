@@ -55,10 +55,6 @@ Classic References:
 
     RFC 9112 (HTTP/1.1) - The official HTTP/1.1 protocol specification.
 
-    Beej's Guide to Network Programming - Essential resource for understanding POSIX sockets.
-
-    NGINX Documentation - Used as the reference behavior for configuration inheritance, longest-prefix matching, and autoindex generation.
-
     Linux manual pages (man epoll, man stat, man opendir).
     
     Linux programming interface

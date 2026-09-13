@@ -49,7 +49,6 @@ class RequestHandler {
 		void	_handleDirectory(const std::string &real_path);
 
 		bool	_isCgiExtension(const std::string &real_path) const;
-		void	_handleCGI(const std::string &real_path);
 
 		void		_buildErrorResponse(HttpStatus::Code code);
 		std::string	_guessMimeType(const std::string &path) const;

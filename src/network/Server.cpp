@@ -61,7 +61,7 @@ void Server::create_socket()
     this->m_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (this->m_fd == -1)
     {
-        throw std::runtime_error("error: socket() for " + m_key + " failed");
+        throw std::runtime_error("socket() for " + m_key + " failed");
     }
 }
 
@@ -70,11 +70,11 @@ void Server::bind_address()
     int opt = 1;
     if (setsockopt(this->m_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) != 0)
     {
-        throw std::runtime_error("error: setsockopt() failed on " + m_key);
+        throw std::runtime_error("setsockopt() failed on " + m_key);
     }
     if (bind(this->m_fd, reinterpret_cast<sockaddr *>(&this->m_addr), sizeof(m_addr)) != 0)
     {
-        throw std::runtime_error("error: bind() failed on " + m_key);
+        throw std::runtime_error("bind() failed on " + m_key);
     }
 }
 
@@ -82,7 +82,7 @@ void Server::start_listening()
 {
     if (listen(this->m_fd, SOMAXCONN) != 0)
     {
-        throw std::runtime_error("error: listen() for " + m_key + " failed");
+        throw std::runtime_error("listen() for " + m_key + " failed");
     }
 }
 
@@ -91,7 +91,6 @@ int Server::accept_connection()
 {
     int clientFd;
 
-    //  : catch client infos
     clientFd = accept4(this->m_fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
 
     return clientFd;
@@ -142,7 +141,7 @@ std::string Server::craft_key(const std::string &ip, int port)
 
         addr = *((sockaddr_in *)res->ai_addr);
         if (inet_ntop(AF_INET, &addr.sin_addr, buffer, INET_ADDRSTRLEN) == NULL)
-            throw std::runtime_error("error: inet_ntop() failed for " + ip);
+            throw std::runtime_error("inet_ntop() failed for " + ip);
         ssKey << &buffer[0];
         ssKey << ':';
         ssKey << port;

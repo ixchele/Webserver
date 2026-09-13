@@ -465,18 +465,8 @@ void	HttpRequest::_processChunked(void) {
 	}
 }
 
-// Chunk format reminder (RFC 7230 §4.1):
-//   <hex-size>\r\n
-//   <that many bytes of data>\r\n
-//   <hex-size>\r\n
-//   ...
-//   0\r\n
-//   \r\n            (end of chunks, optionally preceded by trailers)
 
 bool	HttpRequest::_parseChunkSize(const std::string &line) {
-	// `line` is already the isolated chunk-size line - the caller
-	// (_processChunked) strips the trailing CRLF before passing it in -
-	// but keep this defensive in case that ever changes.
 	size_t	pos = line.find("\r\n");
 	std::string hexpart = pos == std::string::npos ? line : line.substr(0, pos);
 

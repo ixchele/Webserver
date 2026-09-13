@@ -36,7 +36,6 @@ Epoll::EventState Client::_receiveData()
         return Epoll::EERROR;
     }
     buffer[bytes] = '\0';
-    LOG_DEBUG << buffer;
 
     _request.parse(buffer, static_cast<size_t>(bytes));
     if (_request.getState() == HttpRequest::COMPLETE)
@@ -68,10 +67,8 @@ Epoll::EventState Client::_receiveData()
                 if (_epoll.edit_fd(m_fd, this, EPOLLOUT) != 0)
                     return Epoll::EERROR;
             }
-            else if (startCgi(interp, script, body_fd) != 0)
-            {
+            else if (startCgi(interp, script, body_fd) != 0);
                 // the error is built inside startCgi()
-            }
             else
                 return Epoll::ECONTINUE;
         }
